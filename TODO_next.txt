@@ -1,0 +1,14 @@
+#### This is a readme for known Bugs and likely-to-be next steps #########
+#### The content of this file can be used to give to an AI in Order to work with the game ####
+#### The AI schould update the File after finishing, plus add new Ideas on what to do next, and add any bugs it finds ###
+
+#### Known Bugs ####
+- The Street Names in the 3D Maps massively overlap the whole map and make it not fun to play
+- The street names in the 2D Maps get cut off on some maps, which impacts user experience
+
+### Next Features ###
+- build an actual Impressum
+- Make it legally safe (no copyright-issues with Monopoly)
+- Critically check for ANY security-Flaws
+- Host this as a web-App
+- Monetize with well-placed Ads
