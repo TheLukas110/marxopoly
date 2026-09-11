@@ -1,5 +1,5 @@
-import { netWorth, ownedTileIds, tileAt, type GameState } from '@rentier/shared';
-import { TOKEN_GLYPHS, money, tileColor } from '../lib.js';
+import { netWorth, ownedTileIds, tileAt, tileLabel, type GameState } from '@marxopoly/shared';
+import { money, playerIcon, tileColor } from '../lib.js';
 
 interface Props {
   state: GameState;
@@ -9,6 +9,8 @@ interface Props {
 
 export default function PlayerList({ state, myId, onTrade }: Props) {
   const current = state.players.find((p) => p.seat === state.turnSeat && !p.bankrupt);
+  // A player who has folded is a spectator now — no trading.
+  const canTrade = !!myId && !state.players.find((p) => p.id === myId)?.bankrupt;
 
   return (
     <div className="panel players">
@@ -18,10 +20,11 @@ export default function PlayerList({ state, myId, onTrade }: Props) {
           <div
             key={p.id}
             className={`player-card${p.id === current?.id ? ' active' : ''}${p.bankrupt ? ' out' : ''}`}
+            style={{ '--pc': p.color } as React.CSSProperties}
           >
             <div className="player-top">
               <span className="chip" style={{ background: p.color }}>
-                {TOKEN_GLYPHS[p.token] ?? '●'}
+                {playerIcon(p)}
               </span>
               <span className="player-name">
                 {p.name}
@@ -32,7 +35,7 @@ export default function PlayerList({ state, myId, onTrade }: Props) {
               <span className="player-cash">{p.bankrupt ? 'out' : money(p.cash)}</span>
             </div>
             <div className="player-meta">
-              <span>{tiles.length} deeds</span>
+              <span>{tiles.length} {tiles.length === 1 ? 'deed' : 'deeds'}</span>
               <span>net {money(netWorth(state, p.id))}</span>
               {p.inHolding && <span className="warn">in holding</span>}
               {p.reprieveCards > 0 && <span>{p.reprieveCards} reprieve</span>}
@@ -46,12 +49,12 @@ export default function PlayerList({ state, myId, onTrade }: Props) {
                     key={id}
                     className={`deed-dot${deed.mortgaged ? ' mtg' : ''}`}
                     style={{ background: tileColor(tile) ?? '#4b5563' }}
-                    title={`${tile.name}${deed.mortgaged ? ' (mortgaged)' : ''}`}
+                    title={`${tileLabel(state, id)}${deed.mortgaged ? ' (mortgaged)' : ''}`}
                   />
                 );
               })}
             </div>
-            {myId && p.id !== myId && !p.bankrupt && state.phase !== 'game_over' && (
+            {canTrade && p.id !== myId && !p.bankrupt && state.phase !== 'game_over' && (
               <button className="btn ghost small full" onClick={() => onTrade(p.id)}>
                 Offer trade
               </button>

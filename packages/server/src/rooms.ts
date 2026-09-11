@@ -1,21 +1,29 @@
 import { randomUUID } from 'node:crypto';
 import {
+  addCard,
   addPlayerToLobby,
   applyAction,
   applySettings,
   createGame,
   currentPlayer,
+  makeCard,
+  removeCard,
   removePlayerFromLobby,
+  renameTile,
+  sanitizeCardInput,
   type ChatMessage,
   type GameAction,
   type GameSettings,
   type GameState,
   type RoomSummary,
-} from '@rentier/shared';
+} from '@marxopoly/shared';
 import { config } from './config.js';
 import { decideBotAction } from './bot.js';
 
 const BOT_NAMES = ['Mira', 'Oslo', 'Pike', 'Junot', 'Wren', 'Cass', 'Bly', 'Nero'];
+
+/** Hard ceiling on live rooms, so room-create spam cannot exhaust memory. */
+const MAX_ROOMS = 400;
 
 export interface Room {
   id: string;
@@ -26,9 +34,13 @@ export interface Room {
   state: GameState;
   /** playerId -> reconnect token. */
   tokens: Map<string, string>;
+  /** playerId -> epoch ms after which the reconnect token is refused. */
+  tokenExpiry: Map<string, number>;
   /** playerId -> socket id, only for connected players. */
   sockets: Map<string, string>;
   chat: ChatMessage[];
+  /** Socket ids currently watching without a seat. */
+  spectatorSockets: Set<string>;
   /** playerId -> timer that forfeits the seat if they never come back. */
   dropTimers: Map<string, NodeJS.Timeout>;
   botTimer: NodeJS.Timeout | null;
@@ -72,13 +84,14 @@ export class RoomManager {
 
   list(): RoomSummary[] {
     return [...this.rooms.values()]
-      .filter((r) => !r.isPrivate)
+      // A finished game drops off the board — nothing left to join or watch.
+      .filter((r) => !r.isPrivate && r.state.phase !== 'game_over')
       .map((r) => ({
         id: r.id,
         name: r.name,
-        hostId: r.hostId,
         playerCount: r.state.players.filter((p) => !p.bankrupt).length,
         maxPlayers: r.state.settings.maxPlayers,
+        spectatorCount: r.spectatorSockets.size,
         phase: r.state.phase,
         isPrivate: r.isPrivate,
         createdAt: r.createdAt,
@@ -97,6 +110,9 @@ export class RoomManager {
     isPrivate: boolean;
     settings?: Partial<GameSettings>;
   }): { room: Room; playerId: string; token: string } {
+    if (this.rooms.size >= MAX_ROOMS) {
+      throw new Error('The server is at capacity right now. Try again in a few minutes.');
+    }
     const id = shortCode();
     const playerId = randomUUID();
     const token = randomUUID();
@@ -113,8 +129,10 @@ export class RoomManager {
       createdAt: Date.now(),
       state,
       tokens: new Map([[playerId, token]]),
+      tokenExpiry: new Map([[playerId, Date.now() + config.reconnectTokenTtlMs]]),
       sockets: new Map(),
       chat: [],
+      spectatorSockets: new Set(),
       dropTimers: new Map(),
       botTimer: null,
       lastActivity: Date.now(),
@@ -128,26 +146,43 @@ export class RoomManager {
     playerName: string,
     token: string | undefined,
     socketId: string,
-  ): { ok: true; room: Room; playerId: string; token: string } | { ok: false; error: string } {
+  ):
+    | { ok: true; room: Room; playerId: string; token: string; displacedSocketId?: string }
+    | { ok: true; room: Room; spectator: true }
+    | { ok: false; error: string } {
     const room = this.rooms.get(roomId.toUpperCase());
     if (!room) return { ok: false, error: 'That room does not exist.' };
 
-    // Reconnect path: a known token gets its seat back, even mid-game.
+    // Reconnect path: a known, unexpired token gets its seat back, even mid-game.
     if (token) {
       for (const [playerId, stored] of room.tokens) {
         if (stored !== token) continue;
+        if (Date.now() > (room.tokenExpiry.get(playerId) ?? 0)) break; // expired — treat as a fresh join
         const timer = room.dropTimers.get(playerId);
         if (timer) {
           clearTimeout(timer);
           room.dropTimers.delete(playerId);
         }
+        // Sliding expiry: an actively used seat keeps its token alive.
+        room.tokenExpiry.set(playerId, Date.now() + config.reconnectTokenTtlMs);
+        // If another socket still holds this seat, it is a stale tab: hand the
+        // seat to the new socket and tell the old one it has been replaced.
+        const previous = room.sockets.get(playerId);
         room.sockets.set(playerId, socketId);
         this.dispatchInternal(room, playerId, { type: 'set_connected', playerId, connected: true });
-        return { ok: true, room, playerId, token };
+        return previous && previous !== socketId
+          ? { ok: true, room, playerId, token, displacedSocketId: previous }
+          : { ok: true, room, playerId, token };
       }
     }
 
-    if (room.state.phase !== 'lobby') return { ok: false, error: 'That game is already under way.' };
+    // A game already under way has no seats to give — join as a viewer instead.
+    if (room.state.phase !== 'lobby') {
+      room.spectatorSockets.add(socketId);
+      room.lastActivity = Date.now();
+      this.emit(room);
+      return { ok: true, room, spectator: true };
+    }
     if (room.state.players.length >= room.state.settings.maxPlayers) {
       return { ok: false, error: 'That table is full.' };
     }
@@ -156,6 +191,7 @@ export class RoomManager {
     const newToken = randomUUID();
     room.state = addPlayerToLobby(room.state, { id: playerId, name: clean(playerName) });
     room.tokens.set(playerId, newToken);
+    room.tokenExpiry.set(playerId, Date.now() + config.reconnectTokenTtlMs);
     room.sockets.set(playerId, socketId);
     room.lastActivity = Date.now();
     this.emit(room);
@@ -179,6 +215,7 @@ export class RoomManager {
     if (targetId === requesterId) return 'You cannot remove yourself.';
     room.state = removePlayerFromLobby(room.state, targetId);
     room.tokens.delete(targetId);
+    room.tokenExpiry.delete(targetId);
     room.sockets.delete(targetId);
     this.emit(room);
     return null;
@@ -192,11 +229,40 @@ export class RoomManager {
     return null;
   }
 
+  renameTile(room: Room, requesterId: string, tileId: number, name: string): string | null {
+    if (room.hostId !== requesterId) return 'Only the host can rename tiles.';
+    if (room.state.phase !== 'lobby') return 'The board is locked once the game starts.';
+    room.state = renameTile(room.state, tileId, name);
+    this.emit(room);
+    return null;
+  }
+
+  addCard(room: Room, requesterId: string, input: unknown): string | null {
+    if (room.hostId !== requesterId) return 'Only the host can add cards.';
+    if (room.state.phase !== 'lobby') return 'Cards are locked once the game starts.';
+    const clean = sanitizeCardInput(input);
+    if (typeof clean === 'string') return clean;
+    room.state = addCard(room.state, makeCard(clean, `c-${randomUUID().slice(0, 8)}`));
+    this.emit(room);
+    return null;
+  }
+
+  removeCard(room: Room, requesterId: string, cardId: string): string | null {
+    if (room.hostId !== requesterId) return 'Only the host can remove cards.';
+    if (room.state.phase !== 'lobby') return 'Cards are locked once the game starts.';
+    const before = room.state.cards.length;
+    room.state = removeCard(room.state, cardId);
+    if (room.state.cards.length === before) return 'A deck must keep at least one card.';
+    this.emit(room);
+    return null;
+  }
+
   leave(room: Room, playerId: string): void {
     room.sockets.delete(playerId);
     if (room.state.phase === 'lobby') {
       room.state = removePlayerFromLobby(room.state, playerId);
       room.tokens.delete(playerId);
+      room.tokenExpiry.delete(playerId);
       if (room.hostId === playerId) {
         const next = room.state.players.find((p) => !p.isBot);
         if (next) room.hostId = next.id;
@@ -205,7 +271,29 @@ export class RoomManager {
       else this.emit(room);
       return;
     }
-    this.dispatchInternal(room, playerId, { type: 'set_connected', playerId, connected: false });
+
+    // Explicitly leaving a game in progress is a forfeit: the engine hands the
+    // player's properties back to the bank (no houses, buyable again), zeroes
+    // their cash, and ends the game if only one player is left standing.
+    const timer = room.dropTimers.get(playerId);
+    if (timer) {
+      clearTimeout(timer);
+      room.dropTimers.delete(playerId);
+    }
+    room.tokens.delete(playerId);
+    room.tokenExpiry.delete(playerId);
+    if (room.state.phase !== 'game_over') {
+      this.dispatchInternal(room, playerId, { type: 'resign' });
+    } else {
+      this.emit(room);
+    }
+  }
+
+  /** A viewer closed the tab or left; drop them from the watch set. */
+  leaveSpectator(room: Room, socketId: string): void {
+    if (!room.spectatorSockets.delete(socketId)) return;
+    room.lastActivity = Date.now();
+    this.emit(room);
   }
 
   /** Called when a socket drops; the seat is held open for the grace period. */
@@ -235,7 +323,8 @@ export class RoomManager {
   // Gameplay
   // -------------------------------------------------------------------------
 
-  dispatch(room: Room, playerId: string, action: GameAction): string | null {
+  dispatch(room: Room, playerId: string, action: GameAction, spectator = false): string | null {
+    if (spectator) return 'Viewers cannot take actions.';
     // Players may never inject engine-internal actions.
     if (action.type === 'set_connected' || action.type === 'timeout') {
       return 'Not allowed.';
@@ -279,7 +368,11 @@ export class RoomManager {
   private tick(): void {
     const now = Date.now();
     for (const room of [...this.rooms.values()]) {
-      if (room.sockets.size === 0 && now - room.lastActivity > config.emptyRoomTtlMs) {
+      if (
+        room.sockets.size === 0 &&
+        room.spectatorSockets.size === 0 &&
+        now - room.lastActivity > config.emptyRoomTtlMs
+      ) {
         this.destroy(room.id);
         continue;
       }
@@ -349,11 +442,14 @@ function clean(value: string): string {
   return (value ?? '').toString().replace(/\s+/g, ' ').trim().slice(0, 24);
 }
 
+// 6 chars from a 31-char alphabet ≈ 887M codes. Combined with join rate limiting
+// this keeps "private" (unlisted) rooms effectively unguessable.
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const CODE_LENGTH = 6;
 
 function shortCode(): string {
   let out = '';
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < CODE_LENGTH; i++) {
     out += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
   }
   return out;

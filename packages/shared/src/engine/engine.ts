@@ -4,7 +4,6 @@ import {
   HOLDING_TILE,
   tileAt,
 } from '../data/board.js';
-import { cardById } from '../data/cards.js';
 import { rollDice, shuffle } from '../rng.js';
 import type {
   ActionEnvelope,
@@ -54,7 +53,10 @@ export function applyAction(state: GameState, envelope: ActionEnvelope): ApplyRe
     const error = dispatch(g, playerId, action, now);
     if (error) return { ok: false, error };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Unexpected engine error' };
+    // A throw here is an engine bug, not a rejected move. Log it where the
+    // engine runs (the server) but never surface internals to the client.
+    console.error('[engine] uncaught error while applying action', action?.type, err);
+    return { ok: false, error: 'That action could not be completed.' };
   }
 
   g.version += 1;
@@ -102,7 +104,7 @@ function dispatch(g: GameState, playerId: string, action: GameAction, now: numbe
     case 'declare_bankruptcy':
       return doDeclareBankruptcy(g, playerId, now);
     case 'resign':
-      return doResign(g, playerId, now);
+      return doResign(g, playerId, now, action.reason ?? 'left');
     case 'timeout':
       return doTimeout(g, now);
     default:
@@ -123,6 +125,11 @@ function log(g: GameState, kind: LogEntry['kind'], text: string, playerId?: stri
 
 function money(n: number): string {
   return `$${Math.round(n).toLocaleString('en-US')}`;
+}
+
+/** A tile's display name, honouring the host's rename overrides. */
+function tname(g: GameState, tileId: number): string {
+  return g.tileNames[tileId] ?? tileAt(tileId).name;
 }
 
 function credit(g: GameState, player: Player, amount: number): void {
@@ -185,10 +192,22 @@ function startGame(g: GameState, playerId: string, now: number): string | null {
   g.turnSeat = 0;
   g.startedAt = now;
   setDeadline(g, now);
+  recordNetWorth(g);
   log(g, 'system', `Game started with ${g.players.length} players.`);
   const first = currentPlayer(g);
   if (first) log(g, 'system', `${first.name} goes first.`, first.id);
   return null;
+}
+
+/** Snapshot every player's net worth for the end-of-game chart. */
+function recordNetWorth(g: GameState): void {
+  const worth: Record<string, number> = {};
+  for (const p of g.players) worth[p.id] = p.bankrupt ? 0 : netWorth(g, p.id);
+  const history = g.stats.netWorthHistory;
+  const turn = history.length ? history[history.length - 1]!.turn + 1 : 0;
+  history.push({ turn, worth });
+  // Keep marathon games from growing the state unbounded; trim the oldest.
+  if (history.length > 400) history.shift();
 }
 
 function setDeadline(g: GameState, now: number): void {
@@ -206,12 +225,28 @@ function doRoll(g: GameState, playerId: string, now: number): string | null {
 
   const draw = rollDice(g.rngState);
   g.rngState = draw.state;
-  const [a, b] = draw.value;
+  let [a, b] = draw.value;
+
+  // Easter egg: on his first lap the player named "SonToes" gets fixed dice so
+  // he lands squarely on the two priciest streets. The pips shown always add up
+  // to the distance actually travelled, so nothing looks off.
+  const rig = riggedSonToesDice(player);
+  if (rig) {
+    [a, b] = rig;
+    player.sonToesLap = ((player.sonToesLap ?? 0) + 1) as 0 | 1 | 2;
+  } else if (player.sonToesLap === 0 || player.sonToesLap === 1) {
+    // A real roll while the egg is armed only happens when he is still too far
+    // for one roll to hit the street exactly. If a big roll would carry him onto
+    // or past it anyway, that street is forfeited so the egg keeps advancing.
+    if (player.position + a + b >= SONTOES_STREETS[player.sonToesLap]) {
+      player.sonToesLap = (player.sonToesLap + 1) as 0 | 1 | 2;
+    }
+  }
+
   g.dice = [a, b];
   const total = a + b;
   const isDouble = a === b;
   g.hasRolled = true;
-  g.drawnCard = null;
 
   log(g, 'roll', `${player.name} rolled ${a} and ${b}.`, player.id);
 
@@ -261,10 +296,30 @@ function doRoll(g: GameState, playerId: string, now: number): string | null {
   return null;
 }
 
+/** The two priciest streets, in board order. See Player.sonToesLap. */
+const SONTOES_STREETS = [37, 39] as const;
+
 function movePlayerBy(g: GameState, player: Player, steps: number, now: number): void {
   const target = ((player.position + steps) % BOARD_SIZE + BOARD_SIZE) % BOARD_SIZE;
   const passedStart = steps > 0 && player.position + steps >= BOARD_SIZE;
   moveTo(g, player, target, passedStart, now, steps);
+}
+
+/**
+ * Easter egg: fixed dice for the player named "SonToes" while `sonToesLap` is 0
+ * or 1, so his roll lands him exactly on Zuerich then Bern. Returns the two pip
+ * values (which sum to the exact distance), or null to roll for real — either
+ * because the egg is spent or because the street is still more than one roll
+ * (>12) or less than a legal roll (<2) away.
+ */
+function riggedSonToesDice(player: Player): [number, number] | null {
+  const lap = player.sonToesLap;
+  if (lap !== 0 && lap !== 1) return null;
+  if (player.inHolding) return null;
+  const dist = SONTOES_STREETS[lap] - player.position;
+  if (dist < 2 || dist > 12) return null;
+  const a = Math.min(6, dist - 1);
+  return [a, dist - a];
 }
 
 function moveTo(
@@ -281,7 +336,7 @@ function moveTo(
     credit(g, player, g.settings.startSalary);
     log(g, 'money', `${player.name} passed Start and drew ${money(g.settings.startSalary)}.`, player.id);
   }
-  log(g, 'move', `${player.name} landed on ${tile.name}.`, player.id);
+  log(g, 'move', `${player.name} landed on ${tname(g, tile.id)}.`, player.id);
   resolveLanding(g, player, diceTotalOverride ?? diceTotal(g), now, 1);
 }
 
@@ -293,6 +348,7 @@ function sendToHolding(g: GameState, player: Player): void {
   player.position = HOLDING_TILE;
   player.inHolding = true;
   player.holdingTurns = 0;
+  g.stats.holdingVisits[player.id] = (g.stats.holdingVisits[player.id] ?? 0) + 1;
 }
 
 // ---------------------------------------------------------------------------
@@ -315,29 +371,29 @@ function resolveLanding(
         g.phase = 'awaiting_buy';
         setDeadline(g, now);
       } else if (g.settings.auctionsEnabled) {
-        log(g, 'system', `${player.name} cannot afford ${tile.name}. It goes to auction.`, player.id);
+        log(g, 'system', `${player.name} cannot afford ${tname(g, tile.id)}. It goes to auction.`, player.id);
         beginAuction(g, tile.id, player.id, now);
       }
       return;
     }
     if (deed.ownerId === player.id) return;
     if (deed.mortgaged) {
-      log(g, 'system', `${tile.name} is mortgaged — no rent is due.`, player.id);
+      log(g, 'system', `${tname(g, tile.id)} is mortgaged — no rent is due.`, player.id);
       return;
     }
     const owner = getPlayer(g, deed.ownerId)!;
     const base = rentFor(g, tile.id, player.id, total);
     const rent = base * rentMultiplier;
     if (rent <= 0) return;
-    log(g, 'money', `${player.name} owes ${owner.name} ${money(rent)} for ${tile.name}.`, player.id);
-    charge(g, player, rent, owner.id, `rent on ${tile.name}`);
+    log(g, 'money', `${player.name} owes ${owner.name} ${money(rent)} for ${tname(g, tile.id)}.`, player.id);
+    charge(g, player, rent, owner.id, `rent on ${tname(g, tile.id)}`);
     return;
   }
 
   switch (tile.kind) {
     case 'tax': {
-      log(g, 'money', `${player.name} pays ${money(tile.amount)} — ${tile.name}.`, player.id);
-      charge(g, player, tile.amount, null, tile.name.toLowerCase());
+      log(g, 'money', `${player.name} pays ${money(tile.amount)} — ${tname(g, tile.id)}.`, player.id);
+      charge(g, player, tile.amount, null, tname(g, tile.id).toLowerCase());
       return;
     }
     case 'dispatch': {
@@ -347,6 +403,7 @@ function resolveLanding(
     }
     case 'plaza': {
       if (g.settings.plazaPot && g.plazaPot > 0) {
+        g.stats.plazaTake[player.id] = (g.stats.plazaTake[player.id] ?? 0) + g.plazaPot;
         credit(g, player, g.plazaPot);
         log(g, 'money', `${player.name} swept the plaza pot of ${money(g.plazaPot)}.`, player.id);
         g.plazaPot = 0;
@@ -376,18 +433,19 @@ function resolveLanding(
 
 function drawCard(g: GameState, player: Player, deck: 'fortune' | 'ledger', now: number): void {
   const pile = deck === 'fortune' ? g.fortuneDeck : g.ledgerDeck;
+  const deckCards = g.cards.filter((c) => c.deck === deck);
+  if (deckCards.length === 0) {
+    log(g, 'system', `The ${deck === 'fortune' ? 'Fortune' : 'Ledger'} deck is empty.`, player.id);
+    return;
+  }
   if (pile.length === 0) {
-    const reshuffled = shuffle(
-      deck === 'fortune'
-        ? ['f01','f02','f03','f04','f05','f06','f07','f08','f09','f10','f11','f12','f13','f14','f15','f16']
-        : ['l01','l02','l03','l04','l05','l06','l07','l08','l09','l10','l11','l12','l13','l14','l15','l16'],
-      g.rngState,
-    );
+    const reshuffled = shuffle(deckCards.map((c) => c.id), g.rngState);
     g.rngState = reshuffled.state;
     pile.push(...reshuffled.value);
   }
   const cardId = pile.shift()!;
-  const card = cardById(cardId);
+  const card = g.cards.find((c) => c.id === cardId);
+  if (!card) return;
   g.drawnCard = { deck, cardId };
   log(g, 'card', `${player.name} drew: “${card.text}”`, player.id);
   // Reprieve cards leave the deck until they are spent.
@@ -434,7 +492,7 @@ function applyCard(g: GameState, player: Player, card: Card, now: number): void 
         log(g, 'money', `${player.name} passed Start and drew ${money(g.settings.startSalary)}.`, player.id);
       }
       const tile = tileAt(target);
-      log(g, 'move', `${player.name} advanced to ${tile.name}.`, player.id);
+      log(g, 'move', `${player.name} advanced to ${tname(g, tile.id)}.`, player.id);
       const deed = g.deeds[target]!;
       if (!deed.ownerId) {
         resolveLanding(g, player, diceTotal(g), now, 1);
@@ -447,8 +505,8 @@ function applyCard(g: GameState, player: Player, card: Card, now: number): void 
           ? effect.multiplier * diceTotal(g)
           : rentFor(g, target, player.id, diceTotal(g)) * effect.multiplier;
       if (base <= 0) return;
-      log(g, 'money', `${player.name} owes ${owner.name} ${money(base)} for ${tile.name}.`, player.id);
-      charge(g, player, base, owner.id, `rent on ${tile.name}`);
+      log(g, 'money', `${player.name} owes ${owner.name} ${money(base)} for ${tname(g, tile.id)}.`, player.id);
+      charge(g, player, base, owner.id, `rent on ${tname(g, tile.id)}`);
       return;
     }
     case 'goto_holding': {
@@ -498,7 +556,7 @@ function doBuy(g: GameState, playerId: string, now: number): string | null {
 
   player.cash -= tile.price;
   deed.ownerId = player.id;
-  log(g, 'money', `${player.name} bought ${tile.name} for ${money(tile.price)}.`, player.id);
+  log(g, 'money', `${player.name} bought ${tname(g, tile.id)} for ${money(tile.price)}.`, player.id);
   g.phase = 'post_roll';
   settleTurn(g, now);
   return null;
@@ -512,12 +570,12 @@ function doDecline(g: GameState, playerId: string, now: number): string | null {
   if (!tile) return 'Nothing here.';
 
   if (!g.settings.auctionsEnabled) {
-    log(g, 'system', `${player.name} passed on ${tile.name}.`, player.id);
+    log(g, 'system', `${player.name} passed on ${tname(g, tile.id)}.`, player.id);
     g.phase = 'post_roll';
     settleTurn(g, now);
     return null;
   }
-  log(g, 'system', `${player.name} sent ${tile.name} to auction.`, player.id);
+  log(g, 'system', `${player.name} sent ${tname(g, tile.id)} to auction.`, player.id);
   beginAuction(g, tile.id, player.id, now);
   return null;
 }
@@ -541,7 +599,7 @@ function beginAuction(g: GameState, tileId: number, starterId: string, now: numb
     deadline: g.settings.turnSeconds > 0 ? now + Math.max(15, g.settings.turnSeconds / 3) * 1000 : null,
   };
   g.phase = 'auction';
-  log(g, 'system', `Auction open for ${tileAt(tileId).name}.`);
+  log(g, 'system', `Auction open for ${tname(g, tileId)}.`);
 }
 
 function doBid(g: GameState, playerId: string, amount: number, now: number): string | null {
@@ -595,9 +653,9 @@ function finishAuction(g: GameState, now: number): void {
     const winner = getPlayer(g, auction.highBidderId)!;
     winner.cash -= auction.highBid;
     g.deeds[auction.tileId]!.ownerId = winner.id;
-    log(g, 'money', `${winner.name} won ${tile.name} at auction for ${money(auction.highBid)}.`, winner.id);
+    log(g, 'money', `${winner.name} won ${tname(g, tile.id)} at auction for ${money(auction.highBid)}.`, winner.id);
   } else {
-    log(g, 'system', `${tile.name} drew no bids and stays with the bank.`);
+    log(g, 'system', `${tname(g, tile.id)} drew no bids and stays with the bank.`);
   }
   g.auction = null;
   g.phase = 'post_roll';
@@ -626,8 +684,8 @@ function doBuild(g: GameState, playerId: string, tileId: number, now: number): s
     g,
     'build',
     deed.houses === 5
-      ? `${player.name} opened a hotel on ${tile.name}.`
-      : `${player.name} built a house on ${tile.name} (${deed.houses}).`,
+      ? `${player.name} opened a hotel on ${tname(g, tile.id)}.`
+      : `${player.name} built a house on ${tname(g, tile.id)} (${deed.houses}).`,
     playerId,
   );
   return null;
@@ -641,7 +699,7 @@ function doSellBuilding(g: GameState, playerId: string, tileId: number, now: num
   const deed = g.deeds[tileId]!;
   deed.houses -= 1;
   player.cash += check.cost!;
-  log(g, 'build', `${player.name} sold a building on ${tileAt(tileId).name} for ${money(check.cost!)}.`, playerId);
+  log(g, 'build', `${player.name} sold a building on ${tname(g, tileId)} for ${money(check.cost!)}.`, playerId);
   maybeSettleDebt(g, now);
   return null;
 }
@@ -653,7 +711,7 @@ function doMortgage(g: GameState, playerId: string, tileId: number, now: number)
   const player = getPlayer(g, playerId)!;
   g.deeds[tileId]!.mortgaged = true;
   player.cash += check.cost!;
-  log(g, 'money', `${player.name} mortgaged ${tileAt(tileId).name} for ${money(check.cost!)}.`, playerId);
+  log(g, 'money', `${player.name} mortgaged ${tname(g, tileId)} for ${money(check.cost!)}.`, playerId);
   maybeSettleDebt(g, now);
   return null;
 }
@@ -670,7 +728,7 @@ function doUnmortgage(g: GameState, playerId: string, tileId: number, now: numbe
   if (player.cash < cost) return 'Not enough cash.';
   player.cash -= cost;
   deed.mortgaged = false;
-  log(g, 'money', `${player.name} lifted the mortgage on ${tile.name} for ${money(cost)}.`, playerId);
+  log(g, 'money', `${player.name} lifted the mortgage on ${tname(g, tile.id)} for ${money(cost)}.`, playerId);
   return null;
 }
 
@@ -724,14 +782,25 @@ function validateSide(g: GameState, ownerId: string, side: TradeSide): string | 
   if (owner.reprieveCards < side.reprieveCards) return `${owner.name} does not have that many reprieve cards.`;
   for (const id of side.tileIds) {
     const deed = g.deeds[id];
-    if (!deed || deed.ownerId !== ownerId) return `${owner.name} does not own ${tileAt(id).name}.`;
-    if (deed.houses > 0) return `Sell the buildings on ${tileAt(id).name} before trading it.`;
+    if (!deed || deed.ownerId !== ownerId) return `${owner.name} does not own ${tname(g, id)}.`;
+    if (deed.houses > 0) return `Sell the buildings on ${tname(g, id)} before trading it.`;
     const group = groupOf(tileAt(id));
     if (group && (GROUP_TILES[group] ?? []).some((gid) => (g.deeds[gid]?.houses ?? 0) > 0)) {
       return `Clear the buildings in the ${group} group before trading it.`;
     }
   }
   return null;
+}
+
+/** 10% of the mortgage value for every mortgaged deed in the list. */
+function mortgageInterestOwed(g: GameState, tileIds: number[]): number {
+  let total = 0;
+  for (const id of tileIds) {
+    const deed = g.deeds[id];
+    const tile = ownableTile(id);
+    if (deed?.mortgaged && tile) total += Math.ceil(mortgageValue(tile) * 0.1);
+  }
+  return total;
 }
 
 function doProposeTrade(
@@ -776,6 +845,7 @@ function doProposeTrade(
 }
 
 function doAcceptTrade(g: GameState, playerId: string, tradeId: string, now: number): string | null {
+  if (g.phase === 'lobby' || g.phase === 'game_over') return 'Trading is closed.';
   const index = g.trades.findIndex((t) => t.id === tradeId);
   if (index === -1) return 'That offer is gone.';
   const offer = g.trades[index]!;
@@ -795,6 +865,20 @@ function doAcceptTrade(g: GameState, playerId: string, tradeId: string, now: num
   const from = getPlayer(g, offer.fromId)!;
   const to = getPlayer(g, offer.toId)!;
 
+  // Whoever receives a mortgaged deed owes the bank 10% interest right away
+  // (they can lift the mortgage separately later). Reject the whole trade if
+  // either side cannot cover it once the cash swap settles.
+  const fromInterest = mortgageInterestOwed(g, offer.receive.tileIds);
+  const toInterest = mortgageInterestOwed(g, offer.give.tileIds);
+  const fromCashAfter = from.cash - offer.give.cash + offer.receive.cash;
+  const toCashAfter = to.cash + offer.give.cash - offer.receive.cash;
+  if (fromCashAfter < fromInterest) {
+    return `${from.name} cannot cover the 10% interest on the mortgaged property in this trade.`;
+  }
+  if (toCashAfter < toInterest) {
+    return `${to.name} cannot cover the 10% interest on the mortgaged property in this trade.`;
+  }
+
   from.cash -= offer.give.cash;
   to.cash += offer.give.cash;
   to.cash -= offer.receive.cash;
@@ -807,6 +891,17 @@ function doAcceptTrade(g: GameState, playerId: string, tradeId: string, now: num
 
   for (const id of offer.give.tileIds) g.deeds[id]!.ownerId = to.id;
   for (const id of offer.receive.tileIds) g.deeds[id]!.ownerId = from.id;
+
+  if (fromInterest > 0) {
+    from.cash -= fromInterest;
+    payOut(g, null, fromInterest);
+    log(g, 'money', `${from.name} paid ${money(fromInterest)} mortgage interest.`, from.id);
+  }
+  if (toInterest > 0) {
+    to.cash -= toInterest;
+    payOut(g, null, toInterest);
+    log(g, 'money', `${to.name} paid ${money(toInterest)} mortgage interest.`, to.id);
+  }
 
   g.trades.splice(index, 1);
   // Any other open offer touching these assets is now suspect; drop them.
@@ -865,11 +960,29 @@ function doDeclareBankruptcy(g: GameState, playerId: string, now: number): strin
   return null;
 }
 
-function doResign(g: GameState, playerId: string, now: number): string | null {
+/**
+ * Voluntary exit. `reason` only changes the log line — either way the player
+ * forfeits everything to the bank and the game ends if one player is left. A
+ * player who reports bankrupt keeps their seat and can watch to the end; the
+ * server is what decides whether the socket also leaves the room.
+ */
+function doResign(
+  g: GameState,
+  playerId: string,
+  now: number,
+  reason: 'left' | 'bankrupt',
+): string | null {
   const player = getPlayer(g, playerId);
   if (!player || player.bankrupt) return 'You are already out.';
   if (g.phase === 'lobby' || g.phase === 'game_over') return 'Nothing to resign from.';
-  log(g, 'system', `${player.name} resigned.`, playerId);
+  log(
+    g,
+    'system',
+    reason === 'bankrupt'
+      ? `${player.name} reported bankrupt and is out of the game.`
+      : `${player.name} left the table.`,
+    playerId,
+  );
   bankrupt(g, playerId, null, now);
   return null;
 }
@@ -919,6 +1032,7 @@ function bankrupt(g: GameState, debtorId: string, creditorId: string | null, now
     g.endedAt = now;
     g.winnerId = remaining[0]?.id ?? null;
     g.turnDeadline = null;
+    recordNetWorth(g);
     if (remaining[0]) log(g, 'system', `${remaining[0].name} wins with ${money(netWorth(g, remaining[0].id))} in assets.`);
     return;
   }
@@ -978,6 +1092,7 @@ function doEndTurn(g: GameState, playerId: string, now: number): string | null {
 
 function advanceTurn(g: GameState, now: number): void {
   if (g.phase === 'game_over') return;
+  recordNetWorth(g);
   const remaining = activePlayers(g);
   if (remaining.length <= 1) {
     g.phase = 'game_over';
@@ -990,7 +1105,6 @@ function advanceTurn(g: GameState, now: number): void {
   g.dice = null;
   g.doublesInARow = 0;
   g.hasRolled = false;
-  g.drawnCard = null;
 
   const seats = remaining.map((p) => p.seat).sort((a, b) => a - b);
   const next = seats.find((s) => s > g.turnSeat) ?? seats[0]!;

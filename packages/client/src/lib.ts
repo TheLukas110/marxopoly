@@ -1,7 +1,23 @@
-import { GROUP_COLORS, type ColorGroup, type GameState, type Player, type Tile } from '@rentier/shared';
+import {
+  GROUP_COLORS,
+  tileAt,
+  type CardEffect,
+  type ColorGroup,
+  type GameState,
+  type Player,
+  type Tile,
+} from '@marxopoly/shared';
 
 export function money(value: number): string {
   return `$${Math.round(value).toLocaleString('en-US')}`;
+}
+
+/** Compact money for tight spots like chart axes: $0, $850, $1.2k, $3.4M. */
+export function compactMoney(value: number): string {
+  const n = Math.round(value);
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(1).replace(/\.0$/, '')}k`;
+  return `$${n}`;
 }
 
 export function tileColor(tile: Tile): string | null {
@@ -9,28 +25,6 @@ export function tileColor(tile: Tile): string | null {
   if (tile.kind === 'depot') return GROUP_COLORS.depot;
   if (tile.kind === 'works') return GROUP_COLORS.works;
   return null;
-}
-
-/** CSS grid placement for tile `id` on the 11x11 ring. */
-export function gridPosition(id: number): { gridRow: number; gridColumn: number } {
-  if (id === 0) return { gridRow: 11, gridColumn: 11 };
-  if (id < 10) return { gridRow: 11, gridColumn: 11 - id };
-  if (id === 10) return { gridRow: 11, gridColumn: 1 };
-  if (id < 20) return { gridRow: 21 - id, gridColumn: 1 };
-  if (id === 20) return { gridRow: 1, gridColumn: 1 };
-  if (id < 30) return { gridRow: 1, gridColumn: id - 19 };
-  if (id === 30) return { gridRow: 1, gridColumn: 11 };
-  return { gridRow: id - 29, gridColumn: 11 };
-}
-
-export type Edge = 'bottom' | 'left' | 'top' | 'right' | 'corner';
-
-export function tileEdge(id: number): Edge {
-  if (id === 0 || id === 10 || id === 20 || id === 30) return 'corner';
-  if (id < 10) return 'bottom';
-  if (id < 20) return 'left';
-  if (id < 30) return 'top';
-  return 'right';
 }
 
 export function playersOn(state: GameState, tileId: number): Player[] {
@@ -67,13 +61,62 @@ export function secondsLeft(deadline: number | null): number | null {
   return Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
 }
 
-export const TOKEN_GLYPHS: Record<string, string> = {
-  rocket: '▲',
+/** Fallback marker when a player somehow has no known token. */
+export function initial(name: string): string {
+  return (name.trim()[0] ?? '?').toUpperCase();
+}
+
+/** One emoji per seat token (see TOKENS in @marxopoly/shared). */
+export const TOKEN_EMOJI: Record<string, string> = {
+  rocket: '🚀',
   anchor: '⚓',
-  lantern: '✦',
-  compass: '✳',
-  kite: '◆',
-  acorn: '●',
-  bell: '⬢',
-  crown: '★',
+  lantern: '🏮',
+  compass: '🧭',
+  kite: '🪁',
+  acorn: '🌰',
+  bell: '🔔',
+  crown: '👑',
 };
+
+/** The emoji shown for a player's game piece. */
+export function playerIcon(player: { token: string; name: string }): string {
+  return TOKEN_EMOJI[player.token] ?? initial(player.name);
+}
+
+/** Plain-English summary of a card's effect, derived from the effect object so
+ *  new cards describe themselves. Pass `tileNames` for the host's renames. */
+export function describeCardEffect(
+  effect: CardEffect,
+  tileNames?: Record<number, string>,
+): string {
+  switch (effect.kind) {
+    case 'cash':
+      return effect.amount >= 0
+        ? `Collect ${money(effect.amount)} from the bank.`
+        : `Pay ${money(-effect.amount)} to the bank.`;
+    case 'collect_each':
+      return `Collect ${money(effect.amount)} from every other player.`;
+    case 'pay_each':
+      return `Pay ${money(effect.amount)} to every other player.`;
+    case 'move_to': {
+      const name = tileNames?.[effect.tile] ?? tileAt(effect.tile).name;
+      return `Move to ${name} (${effect.collectStart ? 'salary if you pass Start' : 'no salary'}).`;
+    }
+    case 'move_by':
+      return effect.steps >= 0
+        ? `Move forward ${effect.steps} ${effect.steps === 1 ? 'tile' : 'tiles'}.`
+        : `Move back ${Math.abs(effect.steps)} ${Math.abs(effect.steps) === 1 ? 'tile' : 'tiles'}.`;
+    case 'advance_nearest':
+      return `Advance to the nearest ${effect.target}; pay the owner ${effect.multiplier}× the usual toll.`;
+    case 'goto_holding':
+      return 'Go straight to the holding yard — no salary.';
+    case 'reprieve':
+      return 'Keep a reprieve card to leave the holding yard later.';
+    case 'assessment':
+      return `Pay ${money(effect.perHouse)} per house and ${money(effect.perHotel)} per hotel you own.`;
+    default: {
+      const unhandled: never = effect;
+      return unhandled;
+    }
+  }
+}

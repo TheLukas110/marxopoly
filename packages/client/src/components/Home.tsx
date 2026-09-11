@@ -1,21 +1,54 @@
 import { useState } from 'react';
-import { createRoom, joinRoom, refreshRooms, setPlayerName, useStore } from '../net.js';
+import { createRoom, dismissInvitation, joinRoom, refreshRooms, setPlayerName, useStore } from '../net.js';
 
 export default function Home() {
   const playerName = useStore((s) => s.playerName);
   const rooms = useStore((s) => s.rooms);
   const joining = useStore((s) => s.joining);
+  const connected = useStore((s) => s.connected);
+  const invitedRoomId = useStore((s) => s.invitedRoomId);
+  const error = useStore((s) => s.error);
   const [code, setCode] = useState('');
   const [roomName, setRoomName] = useState('');
   const [isPrivate, setPrivate] = useState(false);
 
   const nameOk = playerName.trim().length > 0;
 
+  if (invitedRoomId) {
+    return (
+      <div className="home invitation-home">
+        <header className="home-head">
+          <h1>You're invited to Marxopoly</h1>
+          <p>Choose your name to join table <strong className="code-chip">{invitedRoomId}</strong>.</p>
+        </header>
+        <form className="card" onSubmit={(event) => {
+          event.preventDefault();
+          if (nameOk && connected && !joining) joinRoom(invitedRoomId);
+        }}>
+          <label className="field" htmlFor="invite-name">Your name</label>
+          <input id="invite-name" className="input" value={playerName} maxLength={24}
+            placeholder="e.g. Sandy" autoFocus autoComplete="nickname" required
+            onChange={(event) => setPlayerName(event.target.value)} />
+          {error && <p role="alert">{error}</p>}
+          <p className="muted">If the game has already started, you can join as a spectator.</p>
+          <div className="row">
+            <button className="btn primary" disabled={!nameOk || !connected || joining}>
+              {joining ? 'Joining…' : 'Join table'}
+            </button>
+            <button className="btn ghost" type="button" disabled={joining} onClick={dismissInvitation}>
+              Back to home
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="home">
       <header className="home-head">
         <h1>
-          Rentier<span className="dot" />
+          Marxopoly<span className="dot" />
         </h1>
         <p>Buy the block, build it up, and bankrupt your friends. Two to eight players, live in the browser.</p>
       </header>
@@ -58,11 +91,11 @@ export default function Home() {
             <input
               className="input code"
               value={code}
-              maxLength={5}
-              placeholder="ABC12"
+              maxLength={6}
+              placeholder="ABC123"
               onChange={(e) => setCode(e.target.value.toUpperCase())}
             />
-            <button className="btn" disabled={!nameOk || code.length < 4 || joining} onClick={() => joinRoom(code)}>
+            <button className="btn" disabled={!nameOk || code.length < 6 || joining} onClick={() => joinRoom(code)}>
               Join
             </button>
           </div>
@@ -73,29 +106,40 @@ export default function Home() {
               Refresh
             </button>
           </div>
+          <div className="hint">
+            Testing on your own? Open a <strong>second browser tab</strong> and join with the code —
+            each tab is its own player. Refreshing a tab keeps your seat.
+          </div>
+
           <div className="room-list">
             {rooms.length === 0 && <p className="muted">No public tables right now — start one.</p>}
-            {rooms.map((room) => (
-              <button
-                key={room.id}
-                className="room-row"
-                disabled={!nameOk || room.phase !== 'lobby'}
-                onClick={() => joinRoom(room.id)}
-              >
-                <span className="room-name">{room.name}</span>
-                <span className="room-meta">
-                  {room.playerCount}/{room.maxPlayers} · {room.phase === 'lobby' ? 'open' : 'in play'}
-                </span>
-                <span className="room-code">{room.id}</span>
-              </button>
-            ))}
+            {rooms.map((room) => {
+              const lobby = room.phase === 'lobby';
+              const full = room.playerCount >= room.maxPlayers;
+              return (
+                <button
+                  key={room.id}
+                  className="room-row"
+                  disabled={!nameOk || (lobby && full)}
+                  onClick={() => joinRoom(room.id)}
+                >
+                  <span className="room-name">{room.name}</span>
+                  <span className="room-meta">
+                    {room.playerCount}/{room.maxPlayers} ·{' '}
+                    {lobby ? (full ? 'full' : 'open') : 'in play — watch'}
+                    {room.spectatorCount > 0 && ` · ${room.spectatorCount} watching`}
+                  </span>
+                  <span className="room-code">{room.id}</span>
+                </button>
+              );
+            })}
           </div>
         </section>
       </div>
 
       <footer className="home-foot">
         <p className="muted">
-          Rentier is an original game. It is not affiliated with, endorsed by, or derived from any commercial
+          Marxopoly is an original game. It is not affiliated with, endorsed by, or derived from any commercial
           board game or its publisher.
         </p>
       </footer>

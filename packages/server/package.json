@@ -1,17 +1,19 @@
 {
-  "name": "@rentier/server",
+  "name": "@marxopoly/server",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "share": "tsx watch src/index.ts --share",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@rentier/shared": "workspace:*",
+    "@ngrok/ngrok": "^1.7.0",
+    "@marxopoly/shared": "workspace:*",
     "compression": "^1.7.5",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",

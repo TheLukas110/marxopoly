@@ -1,6 +1,10 @@
+import { useState } from 'react';
 import { addBot, kickPlayer, leaveRoom, send, updateSettings, useStore } from '../net.js';
-import type { GameSettings } from '@rentier/shared';
-import { TOKEN_GLYPHS } from '../lib.js';
+import type { GameSettings } from '@marxopoly/shared';
+import { playerIcon } from '../lib.js';
+import CardsPanel from './CardsPanel.js';
+import MapPicker from './MapPicker.js';
+import InviteLink from './InviteLink.js';
 
 const TOGGLES: { key: keyof GameSettings; label: string; hint: string }[] = [
   { key: 'auctionsEnabled', label: 'Auctions', hint: 'Declined properties go under the hammer.' },
@@ -26,6 +30,7 @@ export default function Lobby() {
   const roomName = useStore((s) => s.roomName);
   const roomId = useStore((s) => s.roomId);
   const isHost = hostId === playerId;
+  const [showCards, setShowCards] = useState(false);
 
   return (
     <div className="lobby">
@@ -36,19 +41,30 @@ export default function Lobby() {
             Share this code to invite people: <strong className="code-chip">{roomId}</strong>
           </p>
         </div>
-        <button className="btn ghost" onClick={leaveRoom}>
-          Leave
-        </button>
+        <div className="row">
+          <MapPicker />
+          <button className="btn ghost" onClick={() => setShowCards(true)}>
+            {isHost ? 'Customise' : 'View cards'}
+          </button>
+          <button className="btn ghost" onClick={leaveRoom}>
+            Leave
+          </button>
+        </div>
       </header>
 
+      {showCards && (
+        <CardsPanel state={game} editable={isHost} onClose={() => setShowCards(false)} />
+      )}
+
       <div className="lobby-grid">
+        {roomId && <InviteLink roomId={roomId} />}
         <section className="card">
           <h2>Players ({game.players.length}/{game.settings.maxPlayers})</h2>
           <ul className="seat-list">
             {game.players.map((p) => (
               <li key={p.id} className="seat">
                 <span className="chip" style={{ background: p.color }}>
-                  {TOKEN_GLYPHS[p.token] ?? '●'}
+                  {playerIcon(p)}
                 </span>
                 <span className="seat-name">
                   {p.name}

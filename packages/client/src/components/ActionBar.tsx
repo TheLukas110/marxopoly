@@ -6,7 +6,7 @@ import {
   liquidValue,
   ownableTile,
   type GameState,
-} from '@rentier/shared';
+} from '@marxopoly/shared';
 import { send } from '../net.js';
 import { money, phaseLabel, secondsLeft } from '../lib.js';
 
@@ -33,7 +33,7 @@ export default function ActionBar({ state, myId, onManage }: Props) {
   const debtIsMine = state.debt?.debtorId === myId;
 
   return (
-    <div className="actionbar">
+    <div className={`actionbar${mine || debtIsMine ? ' mine' : ''}`}>
       <div className="actionbar-status">
         <span className="status-text">{phaseLabel(state, myId)}</span>
         {left !== null && state.phase !== 'game_over' && (
@@ -54,7 +54,7 @@ export default function ActionBar({ state, myId, onManage }: Props) {
                 Pay {money(state.settings.holdingFine)} fine
               </button>
             )}
-            <button className="btn primary" onClick={() => send({ type: 'roll_dice' })}>
+            <button className="btn primary big" onClick={() => send({ type: 'roll_dice' })}>
               Roll dice
             </button>
           </>
@@ -63,7 +63,7 @@ export default function ActionBar({ state, myId, onManage }: Props) {
         {mine && state.phase === 'awaiting_buy' && landedTile && (
           <>
             <button
-              className="btn primary"
+              className="btn primary big"
               disabled={(me?.cash ?? 0) < landedTile.price}
               onClick={() => send({ type: 'buy_property' })}
             >
@@ -76,7 +76,7 @@ export default function ActionBar({ state, myId, onManage }: Props) {
         )}
 
         {mine && state.phase === 'post_roll' && (
-          <button className="btn primary" onClick={() => send({ type: 'end_turn' })}>
+          <button className="btn primary big" onClick={() => send({ type: 'end_turn' })}>
             End turn
           </button>
         )}

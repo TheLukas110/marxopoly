@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { applyAction } from './engine.js';
-import { createGame } from './state.js';
-import { getPlayer, netWorth, rentFor } from './selectors.js';
+import { addCard, createGame, makeCard, removeCard, renameTile } from './state.js';
+import { getPlayer, netWorth, rentFor, tileLabel } from './selectors.js';
+import { sanitizeCardInput } from '../data/cards.js';
+import { rollDice } from '../rng.js';
 import type { GameAction, GameState } from '../types.js';
 
 const NOW = 1_700_000_000_000;
@@ -32,6 +34,43 @@ function place(state: GameState, playerId: string, tileId: number): GameState {
   getPlayer(next, playerId)!.position = tileId;
   return next;
 }
+
+/** Set the player up so their next `roll_dice` lands exactly on `tileId`. */
+function primeRollTo(state: GameState, playerId: string, tileId: number): GameState {
+  const next = structuredClone(state);
+  const [d1, d2] = rollDice(next.rngState).value;
+  const player = getPlayer(next, playerId)!;
+  player.position = (((tileId - (d1 + d2)) % 40) + 40) % 40;
+  next.turnSeat = player.seat;
+  next.phase = 'pre_roll';
+  next.hasRolled = false;
+  next.doublesInARow = 0;
+  return next;
+}
+
+describe('drawn card display', () => {
+  it.each(['fortune', 'ledger'] as const)('retains the latest %s card across turns and ordinary rolls', (deck) => {
+    let g = act(newGame(), 'a', { type: 'start_game' });
+    const card = g.cards.find((c) => c.deck === deck && c.effect.kind === 'cash' && c.effect.amount > 0)!;
+    if (deck === 'fortune') g.fortuneDeck = [card.id];
+    else g.ledgerDeck = [card.id];
+    g = act(primeRollTo(g, 'a', deck === 'fortune' ? 7 : 2), 'a', { type: 'roll_dice' });
+    expect(g.drawnCard).toEqual({ deck, cardId: card.id });
+    // A normal completed roll, irrespective of the deterministic dice being doubles.
+    g.phase = 'post_roll';
+    g = act(g, 'a', { type: 'end_turn' });
+    expect(g.drawnCard?.cardId).toBe(card.id);
+    g = act(primeRollTo(g, 'b', 20), 'b', { type: 'roll_dice' });
+    expect(g.drawnCard?.cardId).toBe(card.id);
+
+    const nextDeck = deck === 'fortune' ? 'ledger' : 'fortune';
+    const nextCard = g.cards.find((c) => c.deck === nextDeck && c.effect.kind === 'cash' && c.effect.amount > 0)!;
+    if (nextDeck === 'fortune') g.fortuneDeck = [nextCard.id];
+    else g.ledgerDeck = [nextCard.id];
+    g = act(primeRollTo(g, 'b', nextDeck === 'fortune' ? 7 : 2), 'b', { type: 'roll_dice' });
+    expect(g.drawnCard).toEqual({ deck: nextDeck, cardId: nextCard.id });
+  });
+});
 
 describe('setup', () => {
   it('gives every player the starting cash and a seat', () => {
@@ -271,6 +310,40 @@ describe('trading', () => {
     });
     expect(expectReject(g, 'c', { type: 'accept_trade', tradeId: g.trades[0]!.id })).toMatch(/not addressed/);
   });
+
+  it('charges the receiver 10% interest when a mortgaged deed changes hands', () => {
+    let g = act(newGame(), 'a', { type: 'start_game' });
+    g.deeds[39]!.ownerId = 'a';
+    g.deeds[39]!.mortgaged = true;
+    const bBefore = getPlayer(g, 'b')!.cash;
+    g = act(g, 'a', {
+      type: 'propose_trade',
+      toId: 'b',
+      give: { cash: 0, tileIds: [39], reprieveCards: 0 },
+      receive: { cash: 0, tileIds: [], reprieveCards: 0 },
+    });
+    g = act(g, 'b', { type: 'accept_trade', tradeId: g.trades[0]!.id });
+    expect(g.deeds[39]!.ownerId).toBe('b');
+    expect(g.deeds[39]!.mortgaged).toBe(true);
+    // Bern price 400 -> mortgage value 200 -> 10% = 20.
+    expect(getPlayer(g, 'b')!.cash).toBe(bBefore - 20);
+  });
+
+  it('refuses trades once the game is over', () => {
+    let g = act(newGame(), 'a', { type: 'start_game' });
+    g.deeds[1]!.ownerId = 'a';
+    g = act(g, 'a', {
+      type: 'propose_trade',
+      toId: 'b',
+      give: { cash: 0, tileIds: [1], reprieveCards: 0 },
+      receive: { cash: 50, tileIds: [], reprieveCards: 0 },
+    });
+    const tradeId = g.trades[0]!.id;
+    g = act(g, 'b', { type: 'resign' });
+    g = act(g, 'c', { type: 'resign' });
+    expect(g.phase).toBe('game_over');
+    expect(expectReject(g, 'b', { type: 'accept_trade', tradeId })).toMatch(/closed/i);
+  });
 });
 
 describe('debt and bankruptcy', () => {
@@ -329,6 +402,28 @@ describe('debt and bankruptcy', () => {
     expect(g.phase).toBe('game_over');
     expect(g.winnerId).toBe('a');
   });
+
+  it('reporting bankrupt forfeits everything and runs the same win check as leaving', () => {
+    let g = act(newGame(), 'a', { type: 'start_game' });
+    g.deeds[1]!.ownerId = 'b';
+    g.deeds[3]!.ownerId = 'b';
+    g.deeds[1]!.houses = 3;
+    getPlayer(g, 'b')!.cash = 900;
+
+    g = act(g, 'b', { type: 'resign', reason: 'bankrupt' });
+    const b = getPlayer(g, 'b')!;
+    expect(b.bankrupt).toBe(true);
+    expect(b.cash).toBe(0);
+    expect(g.deeds[1]!.ownerId).toBeNull();
+    expect(g.deeds[1]!.houses).toBe(0);
+    expect(g.deeds[3]!.ownerId).toBeNull();
+    // still in the players list so they can spectate
+    expect(g.players.some((p) => p.id === 'b')).toBe(true);
+
+    g = act(g, 'c', { type: 'resign', reason: 'bankrupt' });
+    expect(g.phase).toBe('game_over');
+    expect(g.winnerId).toBe('a');
+  });
 });
 
 describe('holding yard', () => {
@@ -381,6 +476,42 @@ describe('determinism', () => {
   });
 });
 
+describe('host customisation', () => {
+  it('renames a tile and clears it with an empty name', () => {
+    let g = newGame();
+    g = renameTile(g, 6, 'Tel Aviv');
+    expect(tileLabel(g, 6)).toBe('Tel Aviv');
+    g = renameTile(g, 6, '  ');
+    expect(g.tileNames[6]).toBeUndefined();
+  });
+
+  it('rejects renames once the game has started', () => {
+    let g = act(newGame(), 'a', { type: 'start_game' });
+    g = renameTile(g, 6, 'Nope');
+    expect(g.tileNames[6]).toBeUndefined();
+  });
+
+  it('adds and removes special cards, rebuilding the deck', () => {
+    let g = newGame();
+    const before = g.cards.filter((c) => c.deck === 'fortune').length;
+    const input = sanitizeCardInput({ deck: 'fortune', text: 'Bonus round. Collect 500.', effect: { kind: 'cash', amount: 500 } });
+    expect(typeof input).not.toBe('string');
+    g = addCard(g, makeCard(input as Exclude<typeof input, string>, 'x1'));
+    expect(g.cards.filter((c) => c.deck === 'fortune')).toHaveLength(before + 1);
+    expect(g.fortuneDeck).toContain('x1');
+    g = removeCard(g, 'x1');
+    expect(g.cards.some((c) => c.id === 'x1')).toBe(false);
+    expect(g.fortuneDeck).not.toContain('x1');
+  });
+
+  it('validates card input', () => {
+    expect(sanitizeCardInput({ deck: 'fortune', text: '', effect: { kind: 'cash', amount: 1 } })).toMatch(/text/i);
+    expect(sanitizeCardInput({ deck: 'x', text: 'hi', effect: { kind: 'cash', amount: 1 } })).toMatch(/deck/i);
+    expect(sanitizeCardInput({ deck: 'ledger', text: 'go', effect: { kind: 'move_to', tile: 99 } })).toMatch(/tile/i);
+    expect(sanitizeCardInput({ deck: 'ledger', text: 'ok', effect: { kind: 'reprieve' } })).toMatchObject({ deck: 'ledger' });
+  });
+});
+
 describe('net worth', () => {
   it('counts cash, deeds and buildings', () => {
     let g = act(newGame(), 'a', { type: 'start_game' });
@@ -388,5 +519,99 @@ describe('net worth', () => {
     g.deeds[3]!.ownerId = 'a';
     g.deeds[1]!.houses = 2;
     expect(netWorth(g, 'a')).toBe(1500 + 60 + 60 + 100);
+  });
+});
+
+describe('end-of-game stats', () => {
+  it('seeds a net-worth snapshot at the start and captures the finish', () => {
+    let g = act(newGame(), 'a', { type: 'start_game' });
+    expect(g.stats.netWorthHistory).toHaveLength(1);
+    expect(g.stats.netWorthHistory[0]!.worth.a).toBe(1500);
+
+    g = act(g, 'b', { type: 'resign' });
+    g = act(g, 'c', { type: 'resign' });
+    expect(g.phase).toBe('game_over');
+    const last = g.stats.netWorthHistory.at(-1)!;
+    expect(last.worth.a).toBeGreaterThan(0);
+    expect(last.worth.b).toBe(0);
+  });
+
+  it('counts holding-yard visits', () => {
+    let g = act(newGame(), 'a', { type: 'start_game' });
+    g = primeRollTo(g, 'a', 30); // Dispatch -> holding yard
+    g = act(g, 'a', { type: 'roll_dice' });
+    expect(getPlayer(g, 'a')!.inHolding).toBe(true);
+    expect(g.stats.holdingVisits.a).toBe(1);
+  });
+
+  it('tracks how much each player swept from the plaza', () => {
+    let g = act(newGame({ plazaPot: true }), 'a', { type: 'start_game' });
+    g.plazaPot = 300;
+    g = primeRollTo(g, 'a', 20); // Plaza
+    g = act(g, 'a', { type: 'roll_dice' });
+    expect(g.stats.plazaTake.a).toBe(300);
+    expect(g.plazaPot).toBe(0);
+  });
+});
+
+describe('SonToes easter egg', () => {
+  function sonToesGame(): GameState {
+    const g = createGame('sontoes', [
+      { id: 'a', name: 'SonToes' },
+      { id: 'b', name: 'Brix' },
+    ], { seed: 7, turnSeconds: 0, auctionsEnabled: false });
+    return act(g, 'a', { type: 'start_game' });
+  }
+
+  interface Turn {
+    from: number;
+    to: number;
+    dice: [number, number];
+  }
+
+  /** Take `turns` solo turns for 'a', recording each move. */
+  function walk(start: GameState, turns: number): { history: Turn[]; end: GameState } {
+    let g = start;
+    const history: Turn[] = [];
+    for (let i = 0; i < turns; i++) {
+      g = structuredClone(g);
+      const p = getPlayer(g, 'a')!;
+      g.turnSeat = p.seat;
+      g.phase = 'pre_roll';
+      g.hasRolled = false;
+      g.dice = null;
+      g.doublesInARow = 0;
+      p.inHolding = false;
+      const from = p.position;
+      g = act(g, 'a', { type: 'roll_dice' });
+      if (g.phase === 'awaiting_buy') g = act(g, 'a', { type: 'decline_property' });
+      history.push({ from, to: getPlayer(g, 'a')!.position, dice: g.dice as [number, number] });
+    }
+    return { history, end: g };
+  }
+
+  it('rigs the dice so SonToes lands on Zuerich then Bern before finishing lap one', () => {
+    const { history, end } = walk(sonToesGame(), 10);
+    const stops = history.map((t) => t.to);
+    const zuerich = stops.indexOf(37);
+    const bern = stops.indexOf(39);
+    expect(zuerich).toBeGreaterThanOrEqual(0);
+    expect(bern).toBe(zuerich + 1);
+    // Nothing before Zuerich wraps past Start.
+    expect(stops.slice(0, zuerich).every((pos) => pos < 37)).toBe(true);
+    expect(getPlayer(end, 'a')!.sonToesLap).toBe(2);
+
+    // The pips shown must add up to the distance actually travelled — no jump.
+    for (const t of history) {
+      const [d1, d2] = t.dice;
+      expect(d1).toBeGreaterThanOrEqual(1);
+      expect(d2).toBeLessThanOrEqual(6);
+      const travelled = ((t.to - t.from) % 40 + 40) % 40;
+      expect(d1 + d2).toBe(travelled);
+    }
+  });
+
+  it('leaves everyone else on ordinary dice', () => {
+    expect(getPlayer(sonToesGame(), 'b')!.sonToesLap).toBeUndefined();
   });
 });
