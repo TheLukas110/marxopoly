@@ -117,13 +117,23 @@ export default function TokenLayer({ state, layout }: Props) {
         const tile = shown[p.id] ?? p.position;
         const { x, y } = tokenSpot(layout, tile);
         const group = stack[tile] ?? [p.id];
-        const offset = (group.indexOf(p.id) - (group.length - 1) / 2) * 14;
+        const index = group.indexOf(p.id);
+        const columns = Math.min(3, group.length);
+        const rows = Math.ceil(group.length / columns);
+        const row = Math.floor(index / columns);
+        const rowSize = Math.min(columns, group.length - row * columns);
+        const offsetX = index % columns - (rowSize - 1) / 2;
+        const offsetY = row - (rows - 1) / 2;
         const walking = !!walkingIds[p.id];
         return (
           <span
             key={p.id}
             className={`board-token${turnPlayerId === p.id ? ' active' : ''}${walking ? ' moving' : ''}`}
-            style={{ left: `calc(${x}% + ${offset}px)`, top: `${y}%`, background: p.color }}
+            style={{
+              left: `calc(${x}% + ${offsetX} * var(--token-step))`,
+              top: `calc(${y}% + ${offsetY} * var(--token-step))`,
+              background: p.color,
+            }}
             title={p.name}
           >
             {playerIcon(p)}

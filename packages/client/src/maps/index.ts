@@ -27,18 +27,22 @@ export function getMap(id: string | null | undefined): MapDefinition {
 
 const STORAGE_KEY = 'marxopoly.map.v1';
 const listeners = new Set<() => void>();
+let memoryMapId: string | null = null;
 
 export function getMapId(): string {
+  if (memoryMapId) return memoryMapId;
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored && MAPS.some((m) => m.id === stored)) return stored;
   } catch {
     /* storage may be unavailable */
   }
-  return DEFAULT_MAP_ID;
+  return memoryMapId ?? DEFAULT_MAP_ID;
 }
 
 export function setMapId(id: string): void {
+  if (!MAPS.some((map) => map.id === id)) return;
+  memoryMapId = id;
   try {
     localStorage.setItem(STORAGE_KEY, id);
   } catch {

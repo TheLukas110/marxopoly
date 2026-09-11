@@ -1,0 +1,123 @@
+import assert from 'node:assert/strict';
+import { after, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { createServer } from 'vite';
+import { createGame } from '@marxopoly/shared';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+
+const server=await createServer({root:fileURLToPath(new URL('.',import.meta.url)),configFile:false,server:{middlewareMode:true,hmr:false},appType:'custom'});
+after(()=>server.close());
+const {buildWorld,buildPieces,worldTile,movementPoint}=await server.ssrLoadModule('/src/world/scene.ts');
+const {cameraFrame,project,screenRay,intersectBox,WORLD_CAMERA}=await server.ssrLoadModule('/src/world/math.ts');
+const themes=['standard','cyber','poker','pride','dummy'];
+
+test('all five worlds contain distinct, finite, solid geometry and exactly forty playable spaces',()=>{
+  const counts=new Set();
+  for(const theme of themes) {
+    const {data,tiles}=buildWorld(theme);counts.add(data.length);
+    assert.equal(tiles.length,40);assert.equal(new Set(tiles.map(t=>t.id)).size,40);
+    assert.equal(data.length%27,0);assert.ok(data.length>27000);
+    assert.ok(data.every(Number.isFinite),theme);
+    let highest=0;
+    for(let i=0;i<data.length;i+=9) { highest=Math.max(highest,data[i+1]);assert.ok(Math.abs(data[i])<=12.2);assert.ok(Math.abs(data[i+2])<=12.2); }
+    assert.ok(highest>=3.8,`${theme} must have a real vertical skyline`);
+    assert.deepEqual(buildWorld(theme).data,data,`${theme} should be deterministic`);
+  }
+  assert.equal(counts.size,5);
+});
+
+test('default camera fits every world on phone, tablet and desktop',()=>{
+  for(const [width,height] of [[320,360],[390,420],[760,600],[600,400],[1100,550]]) {
+    const frame=cameraFrame(WORLD_CAMERA,width/height);
+    for(const theme of themes) {
+      const {data}=buildWorld(theme);
+      for(let i=0;i<data.length;i+=9) {
+        const p=project([data[i],data[i+1],data[i+2]],frame,width,height);
+        assert.ok(p.depth>0);assert.ok(p.x>=8 && p.x<=width-8,`${theme} horizontal fit ${width}x${height}: ${p.x}`);
+        assert.ok(p.y>=8 && p.y<=height-8,`${theme} vertical fit ${width}x${height}: ${p.y}`);
+      }
+    }
+  }
+});
+
+test('projection and pointer rays agree through full orbits and extreme pitches',()=>{
+  for(const aspect of [0.8,1,1.6,2.4])for(const pitch of [0.3,0.82,1.4])for(let yaw=-Math.PI;yaw<Math.PI;yaw+=Math.PI/6) {
+    const frame=cameraFrame({yaw,pitch,zoom:1},aspect);
+    for(const point of [[0,0,0],[9,0.22,9],[-5,4,-3]]) {
+      const p=project(point,frame,800*aspect,800),ray=screenRay(p.x/(800*aspect)*2-1,1-p.y/800*2,frame);
+      const delta=point.map((v,i)=>v-frame.eye[i]),length=Math.hypot(...delta);
+      ray.forEach((value,i)=>assert.ok(Math.abs(value-delta[i]/length)<1e-6));
+      const m=frame.matrix,clip=Array.from({length:4},(_,i)=>m[i]*point[0]+m[i+4]*point[1]+m[i+8]*point[2]+m[i+12]);
+      assert.ok(Math.abs((clip[0]/clip[3]+1)*400*aspect-p.x)<0.001);
+      assert.ok(Math.abs((1-clip[1]/clip[3])*400-p.y)<0.001);
+    }
+  }
+  assert.equal(intersectBox([0,2,0],[0,-1,0],[-1,0,-1],[1,1,1]),1);
+  assert.equal(intersectBox([2,2,0],[0,-1,0],[-1,0,-1],[1,1,1]),null);
+});
+
+test('pieces walk around Start and never cut through the centre of any world',()=>{
+  for(const theme of themes)for(const [from,to] of [[38,4],[3,0],[9,15],[29,35]]) {
+    assert.deepEqual(movementPoint(theme,from,to,0),worldTile(from,theme).center);
+    assert.deepEqual(movementPoint(theme,from,to,1),worldTile(to,theme).center);
+    for(let i=0;i<=100;i++) {const [x,y,z]=movementPoint(theme,from,to,i/100);assert.ok(Math.max(Math.abs(x),Math.abs(z))>=7,theme);assert.ok(y>=0);}
+  }
+});
+
+test('ownership, mortgages, hotels and eight players are reflected without mutating game state',()=>{
+  const state=createGame('TEST',Array.from({length:8},(_,i)=>({id:`p${i}`,name:`Player ${i}`})),{seed:123});
+  state.deeds[1].ownerId='p0';state.deeds[1].houses=5;state.deeds[3].ownerId='p1';state.deeds[3].mortgaged=true;
+  const original=JSON.stringify(state);
+  for(const theme of themes) {
+    const data=buildPieces(theme,state,1,3);assert.ok(data.every(Number.isFinite));assert.ok(data.length>10000);
+    assert.notDeepEqual(data,buildPieces(theme,undefined,1,3));
+  }
+  assert.equal(JSON.stringify(state),original);
+});
+
+test('3D property inspection remains accessible without pointer input',async()=>{
+  const {default:WorldBoard}=await server.ssrLoadModule('/src/components/WorldBoard.tsx');
+  const state=createGame('TEST',[{id:'p0',name:'Player'}],{seed:123});state.tileNames[1]='Custom street name';
+  for(const theme of themes) {
+    const html=renderToStaticMarkup(createElement(WorldBoard,{theme,state,selected:1,onSelect(){}}));
+    assert.equal((html.match(/<option /g)??[]).length,41);
+    assert.ok(html.includes('Custom street name'));assert.ok(html.includes('aria-label="Inspect a board space"'));assert.ok(html.includes('tabindex="0"'));
+    assert.ok(html.includes('Zoom in'));assert.ok(html.includes('Reset world view'));
+  }
+});
+
+test('world selection works when persistence is full or blocked',async()=>{
+  const descriptor=Object.getOwnPropertyDescriptor(globalThis,'localStorage');
+  try {
+    Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:()=> 'standard',setItem(){throw new Error('Quota exceeded');}}});
+    const maps=await server.ssrLoadModule('/src/maps/index.ts?storage=blocked');
+    maps.setMapId('poker');assert.equal(maps.getMapId(),'poker');maps.setMapId('invalid');assert.equal(maps.getMapId(),'poker');
+  } finally {if(descriptor)Object.defineProperty(globalThis,'localStorage',descriptor);else delete globalThis.localStorage;}
+});
+
+test('renderer selects every space on square and circular boards, and releases GPU resources',async()=>{
+  const descriptor=Object.getOwnPropertyDescriptor(globalThis,'window');
+  const {createWorldRenderer}=await server.ssrLoadModule('/src/world/renderer.ts');
+  try {
+    Object.defineProperty(globalThis,'window',{configurable:true,value:{devicePixelRatio:1,matchMedia:()=>({matches:true})}});
+    for(const theme of themes) {
+      let buffers=0,programs=0,draws=0;
+      const gl=new Proxy({
+        createBuffer(){buffers++;return {};},deleteBuffer(){buffers--;},createProgram(){programs++;return {};},deleteProgram(){programs--;},
+        createShader:()=>({}),getShaderParameter:()=>true,getProgramParameter:()=>true,getAttribLocation:()=>0,getUniformLocation:()=>({}),drawArrays(){draws++;},
+      },{get(target,key){return key in target?target[key]:typeof key==='string' && key===key.toUpperCase()?1:()=>{};}});
+      const ctx=new Proxy({measureText:text=>({width:text.length*5})},{get:(target,key)=>key in target?target[key]:()=>{}});
+      const canvas={width:0,height:0,getContext:()=>gl},labels={width:0,height:0,getContext:()=>ctx};
+      const renderer=createWorldRenderer(canvas,labels,theme);
+      renderer.update(undefined,null,null);
+      for(const yaw of [0,1.5,3,4.5]) {
+        const camera={...WORLD_CAMERA,yaw,pitch:1.1};renderer.render(camera,800,600,true);
+        const frame=cameraFrame(camera,800/600);
+        for(let id=0;id<40;id++) {const tile=worldTile(id,theme),p=project([tile.center[0],tile.center[1]+0.14,tile.center[2]],frame,800,600);assert.equal(renderer.pick(p.x,p.y),id,`${theme} tile ${id} at yaw ${yaw}`);}
+      }
+      assert.ok(draws>=4);renderer.dispose();assert.equal(buffers,0);assert.equal(programs,0);
+    }
+    assert.throws(()=>createWorldRenderer({getContext:()=>null},{getContext:()=>null},'standard'),/unavailable/);
+  } finally {if(descriptor)Object.defineProperty(globalThis,'window',descriptor);else delete globalThis.window;}
+});

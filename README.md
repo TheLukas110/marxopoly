@@ -1,7 +1,7 @@
 # Marxopoly
 
 A real-time, multiplayer property-trading board game for the browser. Create a table, share the
-five-character code, and play with two to eight people — or fill the empty seats with bots.
+six-character code, and play with two to eight people — or fill the empty seats with bots.
 
 Marxopoly is an original game with its own board, its own card decks and its own rules engine. It is
 not affiliated with, endorsed by, or derived from any commercial board game or its publisher.
@@ -53,7 +53,7 @@ pnpm dev                              # server on :3001, client on :5173
 ```
 
 Open http://localhost:5173, create a table, and open the same URL in a **second browser tab** (or
-send the five-character code to a friend) to join.
+send the six-character code to a friend) to join.
 
 Each tab is its own player. The seat token is kept in `sessionStorage`, which is per-tab, so
 refreshing a tab keeps your seat while a new tab starts fresh and can join as somebody else. If a
@@ -143,36 +143,48 @@ corners, and seven card tiles.
 - The **Holding Yard** detains you: roll doubles, pay the fine, or spend a reprieve card. After
   three failed attempts you pay and move.
 
-## Maps (board skins)
+## Worlds and board views
 
-Every player picks a **map** for themselves from the dropdown in the lobby and the game header.
-It is a purely visual choice — tile geometry, colours and the centre panel — stored in that
-browser only and never sent to the server, so players at one table can each use a different map.
+Every player picks a **world** from the home-page gallery, lobby, or game header.
+The choice is stored in that browser and never sent to the server, so players at one table
+can each explore a different world.
 The shared tile data (names, prices, rent, cards) is the same for everyone regardless of map.
 
-Bundled maps:
+New player tabs start in **3D world** mode. Each world uses solid WebGL meshes, directional
+lighting, a depth buffer, and distinct architecture. Pieces walk along the forty-space route;
+ownership bars, houses, hotels, and mortgages reflect the authoritative game state.
+Drag to orbit, pinch to zoom, or use the on-screen controls. With the canvas focused,
+arrow keys orbit, **+ / −** zoom, and **Home** resets the view. Mouse-wheel zoom is enabled
+only while the canvas has focus so normal page scrolling remains available.
+Click a space or choose it in **Inspect a space** to see its details. Labels can be hidden.
+The **2D / 3D world** switch is saved per tab. Devices without WebGL can use the 2D board;
+the home page displays a static world preview when interactive rendering is unavailable.
 
-| Map | Look |
+Bundled worlds:
+
+| World | Geometry |
 | --- | --- |
-| **Standard** | The classic board: light tiles on a dark table. |
-| **Cyber** | A four-shade LCD panel in the spirit of an old handheld: pixel edges, monospaced type, scanlines. |
-| **Poker Table** | Cream, gold-edged cards on green baize inside a mahogany rail; the card decks take the suit colours. |
-| **Pride** | Warm white board: spectrum frame, flag stripes on the four corners, a soft rainbow over the centre. |
-| **Dummy** | A deliberately ugly test skin. |
+| **Civic Gardens** (`standard`) | A miniature town with terracotta roofs, a clock tower, canal bridges, trees, and a fountain. |
+| **Neon Circuit** (`cyber`) | Illuminated towers, elevated connections, tiered spaces, and a suspended data core. |
+| **The High Roller** (`poker`) | A circular felt table, radial property cards, chip towers, a house of cards, and a golden crown. |
+| **Spectrum Festival** (`pride`) | A dimensional rainbow arch, an observation wheel, festival stage, bunting, and colourful stalls. |
+| **Block Party** (`dummy`) | Stacked construction blocks, a lattice crane, a suspended load, and miniature trucks. |
 
-Maps live in `packages/client/src/maps/`. To add one, drop a file that exports a `MapDefinition`
-(`id`, `name`, a `layout` — usually `ringLayout(...)` — a set of CSS-variable overrides, and the
-special-tile styles) and list it in the `MAPS` array in `index.ts`. `standard.ts` is a fully
-spelled-out template; `dummy.ts` is a deliberately ugly test skin. A map that needs more than the
-CSS variables can set `wrapClass` and add rules under that class in `styles/index.css`.
+The renderer is in `packages/client/src/world/`: `geometry.ts` builds solid primitives,
+`scene.ts` constructs the worlds and game pieces, `math.ts` handles projection and ray tests,
+and `renderer.ts` owns the WebGL resources and labels. It loads in a separate bundle and
+renders on demand, with continuous frames only during piece movement. Reduced-motion
+preferences disable piece movement, and unmounting releases buffers, observers, and listeners.
 
-If a skin paints outside the board's border box — a bezel, a table rail, a glow — declare how far
-in `--board-ring`. The board shrinks by that much so the ring stays inside the layout, and the
-action bar's notch (measured from the board in `GameRoom.tsx`) is cut wide enough to clear it.
+The original 2D layouts live in `packages/client/src/maps/`. To add a world, register its
+`MapDefinition` in `MAPS`, add metadata in `world/themes.ts`, and implement its scene in
+`world/scene.ts`. Names and prices must continue to come from shared game data.
 
-Every skin is drawn with CSS gradients and unicode glyphs only — no bundled images or fonts, so
-there is nothing to license. Keep it that way, and never draw tile names into a skin: they are
-host-editable at runtime and always come from the shared tile data.
+The gallery PNGs are generated from the same scene meshes with a software depth buffer.
+Regenerate them after changing geometry with `pnpm --filter @marxopoly/client previews`.
+No external textures, fonts, model downloads, or new runtime dependencies are required.
+`pnpm --filter @marxopoly/client test` checks geometry, camera bounds, picking, movement,
+eight-player rendering, accessibility markup, and saved preferences.
 
 ## How the engine works
 

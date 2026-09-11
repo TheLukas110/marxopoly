@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { leaveRoom, reportBankrupt, useStore } from '../net.js';
 import Board from './Board.js';
 import PlayerList from './PlayerList.js';
@@ -13,36 +13,7 @@ import TileDetail from './TileDetail.js';
 import GameOver from './GameOver.js';
 import CardsPanel from './CardsPanel.js';
 import MapPicker from './MapPicker.js';
-import { useMapId } from '../maps/index.js';
-
-/**
- * Keeps the action bar's notch exactly as wide as the board above it, so the
- * board's bottom edge (and whatever ring the map paints around it) drops into
- * the cut instead of sitting on top of the bar. Presentation only: it writes
- * one CSS variable that `.actionbar`'s mask reads.
- */
-function useBoardNotch(ref: React.RefObject<HTMLElement>, mapId: string): void {
-  useEffect(() => {
-    const col = ref.current;
-    const board = col?.querySelector<HTMLElement>('.board');
-    if (!col || !board || typeof ResizeObserver === 'undefined') return;
-
-    let last = -1;
-    const measure = () => {
-      const ring = parseFloat(getComputedStyle(board).getPropertyValue('--board-ring')) || 0;
-      const half = Math.round(board.getBoundingClientRect().width / 2 + ring + 6);
-      if (half === last) return;
-      last = half;
-      col.style.setProperty('--notch-w', `${half}px`);
-    };
-
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(board);
-    observer.observe(col);
-    return () => observer.disconnect();
-  }, [ref, mapId]);
-}
+import BoardViewToggle from './BoardViewToggle.js';
 
 export default function GameRoom() {
   const state = useStore((s) => s.game)!;
@@ -54,8 +25,6 @@ export default function GameRoom() {
   const [managing, setManaging] = useState(false);
   const [tradeWith, setTradeWith] = useState<string | null>(null);
   const [showCards, setShowCards] = useState(false);
-  const centreCol = useRef<HTMLElement>(null);
-  useBoardNotch(centreCol, useMapId());
 
   const me = myId ? state.players.find((p) => p.id === myId) : undefined;
   const inProgress = state.phase !== 'lobby' && state.phase !== 'game_over';
@@ -80,7 +49,10 @@ export default function GameRoom() {
         </div>
         <span className="code-chip">{roomId}</span>
         {spectating && <span className="tag you">Watching</span>}
-        <MapPicker compact />
+        <div className="board-preferences" role="group" aria-label="Board display">
+          <MapPicker compact />
+          <BoardViewToggle />
+        </div>
         <button className="btn ghost small" onClick={() => setShowCards(true)}>
           Cards
         </button>
@@ -101,7 +73,7 @@ export default function GameRoom() {
           <Properties state={state} myId={myId} />
         </aside>
 
-        <section className="col centre" ref={centreCol}>
+        <section className="col centre" aria-label="Board and game actions">
           <Board state={state} selected={selected} onSelect={(id) => setSelected(id === selected ? null : id)} />
           <ActionBar state={state} myId={myId} onManage={() => setManaging(true)} />
         </section>
