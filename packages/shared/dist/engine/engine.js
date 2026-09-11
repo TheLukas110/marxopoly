@@ -203,7 +203,6 @@ function doRoll(g, playerId, now) {
     const total = a + b;
     const isDouble = a === b;
     g.hasRolled = true;
-    g.drawnCard = null;
     log(g, 'roll', `${player.name} rolled ${a} and ${b}.`, player.id);
     if (player.inHolding) {
         if (isDouble) {
@@ -1038,7 +1037,6 @@ function advanceTurn(g, now) {
     g.dice = null;
     g.doublesInARow = 0;
     g.hasRolled = false;
-    g.drawnCard = null;
     const seats = remaining.map((p) => p.seat).sort((a, b) => a - b);
     const next = seats.find((s) => s > g.turnSeat) ?? seats[0];
     g.turnSeat = next;

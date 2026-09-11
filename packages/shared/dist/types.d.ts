@@ -236,6 +236,7 @@ export interface GameState {
     fortuneDeck: string[];
     ledgerDeck: string[];
     /** Card currently shown to the table, cleared when the turn advances. */
+    /** Most recently drawn card, retained until another card is drawn. */
     drawnCard: {
         deck: 'fortune' | 'ledger';
         cardId: string;
@@ -348,6 +349,10 @@ export interface ChatMessage {
     at: number;
 }
 export interface ServerToClientEvents {
+    'server:info': (payload: {
+        publicUrl: string | null;
+        shareEnabled: boolean;
+    }) => void;
     'room:state': (payload: {
         state: GameState;
         hostId: string;

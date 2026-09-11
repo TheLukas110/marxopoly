@@ -167,6 +167,7 @@ function tooFast(socket: GameSocket, ack?: Ack, cost = 1): boolean {
 }
 
 io.on('connection', (socket) => {
+  socket.emit('server:info', { publicUrl: tunnelOrigin, shareEnabled: config.share });
   socket.emit('room:list', manager.list());
 
   socket.on('lobby:list', () => {
@@ -461,6 +462,7 @@ async function openTunnel(): Promise<void> {
     if (url) {
       try {
         tunnelOrigin = new URL(url).origin;
+        io.emit('server:info', { publicUrl: tunnelOrigin, shareEnabled: config.share });
       } catch {
         /* keep tunnelOrigin null; the configured origins still work */
       }

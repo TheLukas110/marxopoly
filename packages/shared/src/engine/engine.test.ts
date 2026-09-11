@@ -48,6 +48,30 @@ function primeRollTo(state: GameState, playerId: string, tileId: number): GameSt
   return next;
 }
 
+describe('drawn card display', () => {
+  it.each(['fortune', 'ledger'] as const)('retains the latest %s card across turns and ordinary rolls', (deck) => {
+    let g = act(newGame(), 'a', { type: 'start_game' });
+    const card = g.cards.find((c) => c.deck === deck && c.effect.kind === 'cash' && c.effect.amount > 0)!;
+    if (deck === 'fortune') g.fortuneDeck = [card.id];
+    else g.ledgerDeck = [card.id];
+    g = act(primeRollTo(g, 'a', deck === 'fortune' ? 7 : 2), 'a', { type: 'roll_dice' });
+    expect(g.drawnCard).toEqual({ deck, cardId: card.id });
+    // A normal completed roll, irrespective of the deterministic dice being doubles.
+    g.phase = 'post_roll';
+    g = act(g, 'a', { type: 'end_turn' });
+    expect(g.drawnCard?.cardId).toBe(card.id);
+    g = act(primeRollTo(g, 'b', 20), 'b', { type: 'roll_dice' });
+    expect(g.drawnCard?.cardId).toBe(card.id);
+
+    const nextDeck = deck === 'fortune' ? 'ledger' : 'fortune';
+    const nextCard = g.cards.find((c) => c.deck === nextDeck && c.effect.kind === 'cash' && c.effect.amount > 0)!;
+    if (nextDeck === 'fortune') g.fortuneDeck = [nextCard.id];
+    else g.ledgerDeck = [nextCard.id];
+    g = act(primeRollTo(g, 'b', nextDeck === 'fortune' ? 7 : 2), 'b', { type: 'roll_dice' });
+    expect(g.drawnCard).toEqual({ deck: nextDeck, cardId: nextCard.id });
+  });
+});
+
 describe('setup', () => {
   it('gives every player the starting cash and a seat', () => {
     const g = newGame();

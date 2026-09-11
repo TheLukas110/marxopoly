@@ -83,6 +83,13 @@ That env var is the only thing the bundled ngrok SDK reads — `ngrok config add
 
 `--share` / `SHARE=1` also turn the tunnel on for `pnpm dev`-style runs.
 
+After creating a table, use **Copy invitation** in the lobby. The invitation uses the public
+ngrok address, even when the host is playing on localhost, and includes the room code as
+`?room=ABC123`. Guests open it, choose their name, and press **Join table**; private tables work
+too. If the game has already started, they join as spectators. The invitation updates when the
+tunnel connects. Without a tunnel it uses the current browser address, suitable for local/LAN
+play only when that address is reachable by the guest. Keep the server running while playing.
+
 ### Production
 
 ```bash
@@ -191,6 +198,9 @@ and every action asserts the phase it is legal in.
 pnpm test          # engine unit tests (vitest)
 pnpm typecheck     # all three packages
 ```
+
+With a built server running, check invitation URLs and multiplayer joining with
+`node packages/client/invitations.smoke.mjs http://localhost:3001`.
 
 The engine suite covers rent maths for all three property types, even-build enforcement, mortgage
 round-trips, auction resolution, trade validation, debt and bankruptcy transfer, the holding yard,

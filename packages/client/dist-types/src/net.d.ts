@@ -6,6 +6,9 @@ export interface StoredSession {
     playerName: string;
 }
 export interface ClientStore {
+    publicUrl: string | null;
+    shareEnabled: boolean;
+    invitedRoomId: string | null;
     connected: boolean;
     roomId: string | null;
     roomName: string;
@@ -25,6 +28,7 @@ export declare function getState(): ClientStore;
 export declare const socket: Socket<ServerToClientEvents, ClientToServerEvents>;
 export declare function setPlayerName(name: string): void;
 export declare function setError(message: string | null): void;
+export declare function dismissInvitation(): void;
 export declare function createRoom(roomName: string, isPrivate: boolean, settings?: Partial<GameSettings>): void;
 export declare function joinRoom(roomId: string): void;
 export declare function leaveRoom(): void;

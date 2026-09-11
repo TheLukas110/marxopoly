@@ -5,7 +5,9 @@
   "description": "Marxopoly — a real-time multiplayer property trading board game for the browser.",
   "license": "MIT",
   "packageManager": "pnpm@10.28.0",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "pnpm --parallel --filter \"./packages/*\" dev",
     "build": "pnpm --filter @marxopoly/shared build && pnpm --filter @marxopoly/server build && pnpm --filter @marxopoly/client build",
@@ -17,5 +19,8 @@
   },
   "devDependencies": {
     "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "pnpm": "^11.25.0"
   }
 }

@@ -43,12 +43,12 @@ export default function Board({ state, selected, onSelect }: Props) {
         <TokenLayer state={state} layout={layout} />
 
         <div
-          className="board-centre"
+          className={`board-centre${card ? ' has-card' : ''}`}
           style={{ gridColumn: layout.centre.column, gridRow: layout.centre.row }}
         >
-          <div className="brand">
+          {!card && <div className="brand">
             Marxopoly<span className="dot" />
-          </div>
+          </div>}
           <Dice dice={state.dice} />
           {current && (
             <div className="centre-turn">
@@ -60,8 +60,8 @@ export default function Board({ state, selected, onSelect }: Props) {
             <div className="centre-pot">Plaza pot: {money(state.plazaPot)}</div>
           )}
           {card && (
-            <div className={`centre-card ${card.deck}`}>
-              <span className="deck-label">{card.deck === 'fortune' ? 'Fortune' : 'Ledger'}</span>
+            <div className={`centre-card ${card.deck}`} role="status" aria-live="polite">
+              <span className="deck-label">Last drawn · {card.deck === 'fortune' ? 'Fortune' : 'Ledger'}</span>
               {cardText}
             </div>
           )}

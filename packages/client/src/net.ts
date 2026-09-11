@@ -1,5 +1,6 @@
 import { io, type Socket } from 'socket.io-client';
 import { useSyncExternalStore } from 'react';
+import { clearInvitation, invitedRoom } from './invitations.js';
 import type {
   CardInput,
   ChatMessage,
@@ -65,6 +66,9 @@ function writeName(name: string): void {
 }
 
 export interface ClientStore {
+  publicUrl: string | null;
+  shareEnabled: boolean;
+  invitedRoomId: string | null;
   connected: boolean;
   roomId: string | null;
   roomName: string;
@@ -81,6 +85,9 @@ export interface ClientStore {
 }
 
 let state: ClientStore = {
+  publicUrl: null,
+  shareEnabled: false,
+  invitedRoomId: invitedRoom(window.location.search),
   connected: false,
   roomId: null,
   roomName: '',
@@ -127,7 +134,7 @@ socket.on('connect', () => {
   socket.emit('lobby:list');
   // Try to walk straight back into whatever table we were sitting at.
   const session = readSession();
-  if (session?.roomId) {
+  if (session?.roomId && (!state.invitedRoomId || state.invitedRoomId === session.roomId)) {
     socket.emit(
       'room:join',
       {
@@ -149,10 +156,12 @@ socket.on('connect_error', () => {
 });
 
 socket.on('room:list', (rooms) => set({ rooms }));
+socket.on('server:info', ({ publicUrl, shareEnabled }) => set({ publicUrl, shareEnabled }));
 
 socket.on('room:joined', ({ roomId, playerId, token, spectator }) => {
+  clearInvitation();
   writeSession({ roomId, token, playerName: state.playerName });
-  set({ roomId, playerId, spectator: !!spectator, error: null, joining: false });
+  set({ roomId, playerId, spectator: !!spectator, error: null, joining: false, invitedRoomId: null });
 });
 
 socket.on('room:state', ({ state: game, hostId, roomName }) => {
@@ -189,6 +198,11 @@ export function setPlayerName(name: string): void {
 
 export function setError(message: string | null): void {
   set({ error: message });
+}
+
+export function dismissInvitation(): void {
+  clearInvitation();
+  set({ invitedRoomId: null, error: null });
 }
 
 export function createRoom(roomName: string, isPrivate: boolean, settings?: Partial<GameSettings>): void {

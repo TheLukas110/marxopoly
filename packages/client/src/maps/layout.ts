@@ -72,7 +72,7 @@ export function ringLayout({ cornerFr = 1.5 }: { cornerFr?: number } = {}): Boar
     return { x: trackCentre(gridColumn), y: trackCentre(gridRow) };
   };
 
-  const template = `${cornerFr}fr repeat(${SIDE - 1}, 1fr) ${cornerFr}fr`;
+  const template = `minmax(0, ${cornerFr}fr) repeat(${SIDE - 1}, minmax(0, 1fr)) minmax(0, ${cornerFr}fr)`;
 
   return {
     gridTemplateColumns: template,

@@ -1,15 +1,48 @@
 import { useState } from 'react';
-import { createRoom, joinRoom, refreshRooms, setPlayerName, useStore } from '../net.js';
+import { createRoom, dismissInvitation, joinRoom, refreshRooms, setPlayerName, useStore } from '../net.js';
 
 export default function Home() {
   const playerName = useStore((s) => s.playerName);
   const rooms = useStore((s) => s.rooms);
   const joining = useStore((s) => s.joining);
+  const connected = useStore((s) => s.connected);
+  const invitedRoomId = useStore((s) => s.invitedRoomId);
+  const error = useStore((s) => s.error);
   const [code, setCode] = useState('');
   const [roomName, setRoomName] = useState('');
   const [isPrivate, setPrivate] = useState(false);
 
   const nameOk = playerName.trim().length > 0;
+
+  if (invitedRoomId) {
+    return (
+      <div className="home invitation-home">
+        <header className="home-head">
+          <h1>You're invited to Marxopoly</h1>
+          <p>Choose your name to join table <strong className="code-chip">{invitedRoomId}</strong>.</p>
+        </header>
+        <form className="card" onSubmit={(event) => {
+          event.preventDefault();
+          if (nameOk && connected && !joining) joinRoom(invitedRoomId);
+        }}>
+          <label className="field" htmlFor="invite-name">Your name</label>
+          <input id="invite-name" className="input" value={playerName} maxLength={24}
+            placeholder="e.g. Sandy" autoFocus autoComplete="nickname" required
+            onChange={(event) => setPlayerName(event.target.value)} />
+          {error && <p role="alert">{error}</p>}
+          <p className="muted">If the game has already started, you can join as a spectator.</p>
+          <div className="row">
+            <button className="btn primary" disabled={!nameOk || !connected || joining}>
+              {joining ? 'Joining…' : 'Join table'}
+            </button>
+            <button className="btn ghost" type="button" disabled={joining} onClick={dismissInvitation}>
+              Back to home
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="home">

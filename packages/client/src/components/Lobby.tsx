@@ -4,6 +4,7 @@ import type { GameSettings } from '@marxopoly/shared';
 import { playerIcon } from '../lib.js';
 import CardsPanel from './CardsPanel.js';
 import MapPicker from './MapPicker.js';
+import InviteLink from './InviteLink.js';
 
 const TOGGLES: { key: keyof GameSettings; label: string; hint: string }[] = [
   { key: 'auctionsEnabled', label: 'Auctions', hint: 'Declined properties go under the hammer.' },
@@ -56,6 +57,7 @@ export default function Lobby() {
       )}
 
       <div className="lobby-grid">
+        {roomId && <InviteLink roomId={roomId} />}
         <section className="card">
           <h2>Players ({game.players.length}/{game.settings.maxPlayers})</h2>
           <ul className="seat-list">
