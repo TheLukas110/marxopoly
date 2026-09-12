@@ -375,9 +375,12 @@ button:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focu
 }
 .tile-name {
   font-size: clamp(5px, calc(var(--board-unit) * 1.65), 11.5px); line-height: 1.1; font-weight: 700;
-  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
-  overflow-wrap: break-word; hyphens: auto; max-width: 100%;
+  flex: 1 1 0; min-height: 0; width: 100%; overflow: auto; scrollbar-width: none;
+  display: flex; flex-direction: column; justify-content: safe center;
+  overflow-wrap: anywhere; hyphens: auto; max-width: 100%;
 }
+.tile-name > span { display: block; flex: none; width: 100%; }
+.tile-price, .tile-glyph, .tile-mortgage { flex: none; }
 .tile-price { font-size: clamp(5px, calc(var(--board-unit) * 1.5), 11px); color: var(--tile-price-ink); font-weight: 700; white-space: nowrap; }
 .tile-glyph { font-size: clamp(8px, calc(var(--board-unit) * 3.2), 24px); line-height: 1; }
 .tile.special.edge-left .tile-glyph,
@@ -385,6 +388,23 @@ button:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focu
 .tile.corner .tile-name { font-size: clamp(6px, calc(var(--board-unit) * 2), 15px); font-weight: 850; letter-spacing: 0.02em; -webkit-line-clamp: 2; }
 .tile.corner .tile-glyph { font-size: clamp(12px, calc(var(--board-unit) * 5), 40px); }
 .tile.corner .tile-body { gap: 2px; padding-bottom: clamp(2px, calc(var(--board-unit) * 1.2), 10px); }
+
+/* On compact boards the name gets the space. Prices remain in tile details. */
+@container (max-width: 520px) or (max-height: 520px) {
+  .tile .tile-head { flex-basis: 10%; }
+  .tile .tile-body { padding: 1px; gap: 0; }
+  .tile.ownable .tile-price, .tile .tile-glyph, .tile .tile-mortgage { display: none; }
+}
+
+/* A forty-space board needs a minimum reading area. Small viewports can pan
+   the board instead of forcing long names into only a few pixels. */
+@container (max-width: 520px) or (max-height: 520px) {
+  .board-view:not(.is-3d) .board-interaction { display: block; overflow: auto; padding: 12px; }
+  .board-view:not(.is-3d) .board-camera {
+    width: 440px; --board-unit: 4.4px;
+    margin: var(--board-ring, 0px);
+  }
+}
 
 .tile-buildings {
   color: #fff; font-size: clamp(5px, calc(var(--board-unit) * 1.5), 11px); font-weight: 800; letter-spacing: 0.5px;

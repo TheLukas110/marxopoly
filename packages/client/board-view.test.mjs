@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { createGame } from '@marxopoly/shared';
+import { BOARD, createGame } from '@marxopoly/shared';
 
 const server = await createServer({
   root: fileURLToPath(new URL('.', import.meta.url)),
@@ -132,6 +132,7 @@ test('every skin renders all tiles and eight player pieces inside the shared cam
       assert.equal((html.match(/class="board-token/g) ?? []).length, 8, map.id);
       assert.ok(html.includes('class="board-camera"'), map.id);
       assert.ok(html.includes('selected'), map.id);
+      for (const tile of BOARD) assert.ok(html.includes(`title="${tile.name}"`), `${map.id}: full name for ${tile.id}`);
       if (map.wrapClass) assert.ok(html.includes(map.wrapClass), map.id);
     }
   } finally {

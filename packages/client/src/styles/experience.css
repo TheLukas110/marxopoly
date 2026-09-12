@@ -42,6 +42,16 @@
 }
 html { scroll-behavior: smooth; scroll-padding-top: 28px; }
 body { font-family: "Segoe UI", system-ui, sans-serif; }
+.legal-footer { flex: none; padding: 12px 70px 18px 20px; text-align: center; font-size: 13px; color: var(--muted); }
+.legal-footer a { display: inline-block; padding: 8px; text-underline-offset: 3px; }
+.imprint-page { width: min(100% - 40px, 720px); margin: 40px auto; padding-bottom: 40px; overflow-wrap: anywhere; }
+.imprint-page h1 { margin: 32px 0 16px; }
+.imprint-page h2 { margin-bottom: 12px; font-size: 20px; }
+.imprint-page p { margin: 12px 0; line-height: 1.6; }
+.imprint-page section { margin: 28px 0; }
+.imprint-page address { font-style: normal; line-height: 1.7; }
+.imprint-page address > * { display: block; }
+.imprint-incomplete { border: 1px solid var(--warn); border-radius: 8px; padding: 16px; }
 a { color: inherit; }
 button, input, select { -webkit-tap-highlight-color: transparent; }
 button, a, input, select { touch-action: manipulation; }

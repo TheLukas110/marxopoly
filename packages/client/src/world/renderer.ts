@@ -2,6 +2,7 @@ import { BOARD, type GameState } from '@marxopoly/shared';
 import { money } from '../lib.js';
 import { cameraFrame, intersectBox, project, screenRay, type WorldCamera, type Vec3 } from './math.js';
 import { buildPieces, buildWorld, movementPoint, tileOffset } from './scene.js';
+import { visibleLabels } from './labels.js';
 
 const VERTEX = `
 attribute vec3 aPosition;
@@ -89,24 +90,32 @@ export function createWorldRenderer(canvas: HTMLCanvasElement, labels: HTMLCanva
     context!.setTransform(ratio,0,0,ratio,0,0);context!.clearRect(0,0,width,height);
     if(!showLabels) return;
     const ctx=context!;
-    // Labels face the reader while their anchors remain in world space.
-    for(const tile of world.tiles) {
+    // Measure all boxes before drawing so selected/hovered spaces win collisions.
+    const candidates = world.tiles.flatMap(tile => {
       const data=BOARD[tile.id],corner=tile.id%10===0;
-      if(width<520 && !corner && tile.id!==selected && tile.id!==hovered) continue;
+      const active=tile.id===selected || tile.id===hovered;
+      if(width<520 && !corner && !active) return [];
       const p=project(tileOffset(tile,0,0.12,0.62),frame,width,height);
-      if(p.depth<=0) continue;
+      if(p.depth<=0) return [];
       const text=state?.tileNames[tile.id] ?? (corner ? {0:'START',10:'HOLD',20:'PLAZA',30:'DISPATCH'}[tile.id] : data.short ?? data.name) ?? data.name;
-      const size=Math.max(8,Math.min(11,width/83));
+      const size=Math.max(10,Math.min(12,width/75));
       ctx.font=`600 ${size}px system-ui, sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
       const maxWidth=Math.max(36,Math.min(84,width/10));
       let line=text;
       while(ctx.measureText(line).width>maxWidth && line.length>3) line=line.slice(0,-2)+'…';
-      const price='price' in data ? money(data.price) : '';
-      const boxWidth=Math.min(maxWidth+8,ctx.measureText(line).width+12),boxHeight=price?size*2+9:size+8;
-      ctx.fillStyle=tile.id===selected?'#f4d7a3':'rgba(16,28,32,0.86)';
-      ctx.beginPath();ctx.roundRect(p.x-boxWidth/2,p.y-4,boxWidth,boxHeight,4);ctx.fill();
-      ctx.fillStyle=tile.id===selected?'#29352e':'#f2eee3';ctx.fillText(line,p.x,p.y+size/2+1);
-      if(price) { ctx.font=`500 ${size-1}px system-ui, sans-serif`;ctx.fillStyle=tile.id===selected?'#4c5446':'#c6d5cc';ctx.fillText(price,p.x,p.y+size*1.5+3); }
+      const price=active && 'price' in data ? money(data.price) : '';
+      const boxWidth=Math.max(ctx.measureText(line).width,ctx.measureText(price).width)+12,boxHeight=price?size*2+9:size+8;
+      return [{id:tile.id,x:p.x-boxWidth/2,y:p.y-4,width:boxWidth,height:boxHeight,
+        priority:tile.id===hovered?3:tile.id===selected?2:corner?1:0,line,price,size}];
+    });
+    for(const box of visibleLabels(candidates,width,height)) {
+      const highlighted=box.id===selected || box.id===hovered;
+      const x=box.x+box.width/2;
+      ctx.fillStyle=highlighted?'#f4d7a3':'rgba(16,28,32,0.86)';
+      ctx.beginPath();ctx.roundRect(box.x,box.y,box.width,box.height,4);ctx.fill();
+      ctx.font=`600 ${box.size}px system-ui, sans-serif`;
+      ctx.fillStyle=highlighted?'#29352e':'#f2eee3';ctx.fillText(box.line,x,box.y+box.size/2+5);
+      if(box.price) { ctx.font=`500 ${box.size-1}px system-ui, sans-serif`;ctx.fillStyle=highlighted?'#4c5446':'#c6d5cc';ctx.fillText(box.price,x,box.y+box.size*1.5+7); }
     }
   }
   function pick(x: number,y: number) {

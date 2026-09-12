@@ -95,9 +95,9 @@ export default function BoardViewport({ map, children }: { map: MapDefinition; c
         <div
           className="board-interaction"
           role="group"
-          aria-label={is3d ? 'Rotatable 3D game board' : 'Game board'}
+          aria-label={is3d ? 'Rotatable 3D game board' : 'Game board — scroll to explore, select a property for its name and price'}
           aria-describedby={is3d ? instructions : undefined}
-          tabIndex={is3d ? 0 : undefined}
+          tabIndex={0}
           onPointerDown={startDrag}
           onPointerMove={moveDrag}
           onPointerUp={endDrag}

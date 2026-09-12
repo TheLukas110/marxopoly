@@ -46,8 +46,29 @@ whatever state the server broadcasts. Every rule lives in one place.
 
 ## Quick start
 
+### Prerequisites
+
+- Node.js 20 or newer
+- Corepack (included with supported Node.js releases)
+
+From the repository root, enable the pinned pnpm version and install all workspace dependencies:
+
 ```bash
+corepack enable
 pnpm install
+```
+
+The repository pins pnpm 10.28.0, so no separate global pnpm installation is required.
+If `corepack enable` lacks permission to write to a system directory, enable its shims in
+your user-level npm bin directory instead:
+
+```bash
+corepack enable --install-directory "$HOME/.npm-global/bin"
+```
+
+### Start the game
+
+```bash
 pnpm --filter @marxopoly/shared build   # the client and server consume its dist output
 pnpm dev                              # server on :3001, client on :5173
 ```
@@ -60,14 +81,14 @@ refreshing a tab keeps your seat while a new tab starts fresh and can join as so
 second tab ever reclaims a seat, the older tab is told it was replaced rather than silently going
 dead.
 
-### Play with remote friends (ngrok)
+### Share a direct ngrok link with remote friends
 
 ```bash
-pnpm share        # builds the client, starts the server, opens a public ngrok tunnel
+pnpm share        # builds every package, starts production server, prints a public ngrok URL
 ```
 
-On startup the terminal prints a banner with the local, LAN, and public URLs — send the
-`https://…ngrok…` link to your friends and they can join straight from the browser (free ngrok
+On startup the terminal prints a banner with the local, LAN, and public URLs. Copy the printed
+`https://…ngrok…` link directly to your friends; they can join straight from the browser (free ngrok
 shows a one-click "visit site" warning first). Everything (page + WebSocket) goes through that one
 tunnel, so no extra setup on the client.
 
@@ -78,10 +99,11 @@ One-time ngrok setup: create a free account, grab your token from
 NGROK_AUTHTOKEN=<your token>
 ```
 
-That env var is the only thing the bundled ngrok SDK reads — `ngrok config add-authtoken`
+That environment variable is the only thing the bundled ngrok SDK reads — `ngrok config add-authtoken`
 (the CLI config file) is **not** used. `.env` (not `.env.example`) is what the server loads.
 
-`--share` / `SHARE=1` also turn the tunnel on for `pnpm dev`-style runs.
+`pnpm share` always enables the tunnel. `SHARE=1 pnpm start` starts the already-built production
+server with a tunnel; this is useful when you have already run `pnpm build`.
 
 After creating a table, use **Copy invitation** in the lobby. The invitation uses the public
 ngrok address, even when the host is playing on localhost, and includes the room code as
@@ -90,12 +112,27 @@ too. If the game has already started, they join as spectators. The invitation up
 tunnel connects. Without a tunnel it uses the current browser address, suitable for local/LAN
 play only when that address is reachable by the guest. Keep the server running while playing.
 
-### Production
+### Build and start locally
 
 ```bash
 pnpm build
-pnpm start        # serves the built client and the socket server on one port (default 3001)
+pnpm start        # serves the built client and the socket server on http://localhost:3001
 ```
+
+The normal release workflow from the `Marxopoly` directory is therefore:
+
+```bash
+pnpm build
+pnpm start
+```
+
+For a public, one-command game session after setting `NGROK_AUTHTOKEN` in `.env`:
+
+```bash
+pnpm share
+```
+
+Keep that command running. Its `Invite link` banner is the direct ngrok URL to send to players.
 
 ### Docker
 
@@ -116,10 +153,25 @@ Copy `.env.example` to `.env` in the repo root (the server reads it at startup).
 | `EMPTY_ROOM_TTL_MS` | `900000` | Idle empty rooms are swept after this. |
 | `BOT_THINK_MS` | `1200` | Bot delay, so humans can follow what happened. |
 | `SHARE` | `0` | `1` opens an ngrok tunnel on startup (same as `pnpm share` / `--share`). |
-| `NGROK_AUTHTOKEN` | – | ngrok token, if not already in the ngrok CLI config. |
+| `NGROK_AUTHTOKEN` | – | Required for ngrok. Put it in the repo-root `.env`; the ngrok CLI config is not read. |
 | `NGROK_DOMAIN` | – | Optional reserved ngrok domain for a stable link. |
 
 The client can point at a different backend with `VITE_SERVER_URL`.
+
+### Impressum (draft)
+
+The German provider notice is available at `/impressum` and linked from the home page,
+lobby and game. The link opens a separate tab so a game can stay open.
+Edit **`packages/client/src/imprint.ts`** to replace the Max Mustermann / Musterfirma
+examples with the operator's public details. Keep `isDraft: true` during preparation;
+the page clearly labels the sample data. Optional fields (legal form, representative,
+phone, register, VAT ID and business ID) are hidden when empty. Rebuild the client
+after changing these values. These are public details, so do not put secrets here.
+
+The structure refers to [§ 5 DDG](https://www.gesetze-im-internet.de/ddg/__5.html).
+Before publication, replace and check the applicable provider details, then set
+`isDraft: false`. This draft does not complete the separate legal, privacy or
+security reviews listed in `TODO_next.txt`.
 
 Per-table house rules (starting cash, salary, auctions on/off, even build, double rent on full sets,
 plaza pot, turn timer, max players) are set by the host in the lobby.
@@ -157,6 +209,14 @@ Drag to orbit, pinch to zoom, or use the on-screen controls. With the canvas foc
 arrow keys orbit, **+ / −** zoom, and **Home** resets the view. Mouse-wheel zoom is enabled
 only while the canvas has focus so normal page scrolling remains available.
 Click a space or choose it in **Inspect a space** to see its details. Labels can be hidden.
+3D labels stay at their space anchors and yield to hovered/selected spaces when crowded;
+prices appear on active labels and in the inspector. Small screens show corner and active
+labels. The 2D board fits names to each cell using the map's actual font, with full names
+available in the tile tooltip and property details. Extremely long custom names can also
+be scrolled within their label.
+Compact 2D viewports keep a 440px board and allow scrolling in both directions instead
+of shrinking names further. They prioritise names over decorative symbols and property
+price lines; select a property to see its price. Tax amounts stay visible on the board.
 The **2D / 3D world** switch is saved per tab. Devices without WebGL can use the 2D board;
 the home page displays a static world preview when interactive rendering is unavailable.
 

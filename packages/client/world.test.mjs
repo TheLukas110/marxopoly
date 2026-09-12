@@ -12,6 +12,49 @@ const {buildWorld,buildPieces,worldTile,movementPoint}=await server.ssrLoadModul
 const {cameraFrame,project,screenRay,intersectBox,WORLD_CAMERA}=await server.ssrLoadModule('/src/world/math.ts');
 const themes=['standard','cyber','poker','pride','dummy'];
 
+test('crowded labels preserve inspection priority and reject clipped boxes', async () => {
+  const {visibleLabels}=await server.ssrLoadModule('/src/world/labels.ts');
+  const box={x:30,y:30,width:80,height:25,priority:0};
+  const candidates=[{...box,id:1},{...box,id:2,priority:2},{...box,id:3,x:-1,priority:3},
+    {...box,id:4,x:150},{...box,id:5,y:190}];
+  assert.deepEqual(visibleLabels(candidates,300,200).map(b=>b.id),[2,4]);
+  assert.equal(candidates[0].id,1,'layout must not mutate input order');
+});
+
+test('rendered label boxes never overlap or escape the viewport across all worlds and cameras', async () => {
+  const descriptor=Object.getOwnPropertyDescriptor(globalThis,'window');
+  const {createWorldRenderer}=await server.ssrLoadModule('/src/world/renderer.ts');
+  try {
+    Object.defineProperty(globalThis,'window',{configurable:true,value:{devicePixelRatio:2,matchMedia:()=>({matches:true})}});
+    const state=createGame('TEST',[{id:'p0',name:'Player'}],{seed:123});
+    state.tileNames[1]='A very long custom street name 🏘️';
+    for(const theme of themes) {
+      const boxes=[];
+      const gl=new Proxy({createShader:()=>({}),createProgram:()=>({}),getShaderParameter:()=>true,getProgramParameter:()=>true},
+        {get:(target,key)=>key in target?target[key]:typeof key==='string' && key===key.toUpperCase()?1:()=>{}});
+      const ctx=new Proxy({measureText:text=>({width:Array.from(text).length*6}),roundRect:(x,y,w,h)=>boxes.push({x,y,w,h})},
+        {get:(target,key)=>key in target?target[key]:()=>{}});
+      const renderer=createWorldRenderer({width:0,height:0,getContext:()=>gl},{getContext:()=>ctx},theme);
+      renderer.update(state,1,3);
+      for(const [width,height] of [[320,360],[520,400],[800,600],[1100,550]]) {
+        for(const yaw of [0,1.5,3,4.5])for(const pitch of [0.3,0.82,1.4])for(const zoom of [0.7,1,1.7]) {
+          boxes.length=0;
+          renderer.render({yaw,pitch,zoom},width,height,true);
+          for(const [index,b] of boxes.entries()) {
+            assert.ok(b.x>=0 && b.y>=0 && b.x+b.w<=width && b.y+b.h<=height,`${theme}: viewport bounds`);
+            for(const other of boxes.slice(index+1)) {
+              assert.ok(b.x+b.w<=other.x || other.x+other.w<=b.x || b.y+b.h<=other.y || other.y+other.h<=b.y,`${theme}: overlapping labels`);
+            }
+          }
+          if(zoom===1) assert.ok(boxes.length>0,`${theme}: default zoom must retain labels`);
+        }
+      }
+      boxes.length=0;renderer.render(WORLD_CAMERA,800,600,false);assert.equal(boxes.length,0);
+      renderer.dispose();
+    }
+  } finally {if(descriptor)Object.defineProperty(globalThis,'window',descriptor);else delete globalThis.window;}
+});
+
 test('all five worlds contain distinct, finite, solid geometry and exactly forty playable spaces',()=>{
   const counts=new Set();
   for(const theme of themes) {
