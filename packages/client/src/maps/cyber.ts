@@ -1,4 +1,4 @@
-import { ringLayout } from './layout.js';
+import { districtLayout } from './layout.js';
 import type { MapDefinition } from './types.js';
 
 /**
@@ -6,9 +6,8 @@ import type { MapDefinition } from './types.js';
  * screen: hard pixel edges, a dark green panel, monospaced type and faint
  * scanlines (drawn in CSS, see `.map-cyber` in `styles/index.css`).
  *
- * Everything here is drawn from colours and unicode glyphs only — no images,
- * no bundled fonts — so nothing has to be licensed, and no street name is
- * baked into the graphics: labels still come from the shared tile data.
+ * Uses colours and unicode glyphs without bundled images or fonts.
+ * Labels come from the shared tile data.
  *
  * The palette is the classic four-step green ramp:
  *   #9bbc0f (lightest) · #8bac0f · #306230 · #0f380f (darkest)
@@ -17,7 +16,7 @@ export const CYBER: MapDefinition = {
   id: 'cyber',
   name: 'Cyber',
   description: 'Retro handheld LCD — four shades of green, scanlines and pixel type.',
-  layout: ringLayout({ cornerFr: 1.4 }),
+  layout: districtLayout(),
   vars: {
     '--board-face': '#0f380f',
     '--board-frame': '#0f380f',
@@ -35,10 +34,10 @@ export const CYBER: MapDefinition = {
   },
   wrapClass: 'map-cyber',
   special: {
-    start: { bg: '#9bbc0f', glyph: '◀', label: 'GO' },
+    start: { bg: '#9bbc0f', glyph: '◎', label: 'START' },
     holding: { bg: '#6b8c1e', glyph: '#', label: 'HOLD' },
     plaza: { bg: '#8bac0f', glyph: '◆', label: 'PLAZA' },
-    dispatch: { bg: '#6b8c1e', glyph: '!', label: 'GO TO HOLD' },
+    dispatch: { bg: '#6b8c1e', glyph: '!', label: 'DISPATCH' },
     fortune: { bg: '#9bbc0f', glyph: '?' },
     ledger: { bg: '#8bac0f', glyph: '≡' },
     tax: { bg: '#7c9c18', glyph: '¤' },

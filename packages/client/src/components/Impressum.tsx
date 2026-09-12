@@ -4,14 +4,14 @@ import { useEffect } from 'react';
 export default function Impressum() {
   useEffect(() => {
     const previous = document.title;
-    document.title = 'Impressum · Marxopoly';
+    document.title = 'Impressum · Common Ground';
     return () => { document.title = previous; };
   }, []);
   const complete = Boolean(imprint.name && imprint.street && imprint.postalCode && imprint.city && imprint.country && imprint.email);
   return <main className="imprint-page" lang="de">
-    <a className="wordmark" href="/">marxopoly<span className="wordmark-period">.</span></a>
+    <a className="wordmark" href="/">common ground<span className="wordmark-period">.</span></a>
     <h1>Impressum</h1>
-    <p>Angaben zum Anbieter von Marxopoly gemäß <a href="https://www.gesetze-im-internet.de/ddg/__5.html">§ 5 Digitale-Dienste-Gesetz (DDG)</a>.</p>
+    <p>Angaben zum Anbieter von Common Ground gemäß <a href="https://www.gesetze-im-internet.de/ddg/__5.html">§ 5 Digitale-Dienste-Gesetz (DDG)</a>.</p>
     {(imprint.isDraft || !complete) && <p className="imprint-incomplete" role="status">Entwurf mit Platzhalterdaten – noch nicht zur Veröffentlichung bestimmt. Die Angaben zum Betreiber müssen vor einer Veröffentlichung ersetzt und vervollständigt werden.</p>}
     <section aria-labelledby="provider-title">
       <h2 id="provider-title">Anbieter</h2>

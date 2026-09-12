@@ -136,15 +136,15 @@ describe('buying and rent', () => {
     g.phase = 'awaiting_buy';
     g = act(g, 'a', { type: 'buy_property' });
     expect(g.deeds[1]!.ownerId).toBe('a');
-    expect(getPlayer(g, 'a')!.cash).toBe(1500 - 60);
-    expect(rentFor(g, 1, 'b', 7)).toBe(2);
+    expect(getPlayer(g, 'a')!.cash).toBe(1500 - 80);
+    expect(rentFor(g, 1, 'b', 7)).toBe(5);
   });
 
   it('doubles base rent when one player holds the whole group', () => {
     let g = act(newGame(), 'a', { type: 'start_game' });
     g.deeds[1]!.ownerId = 'a';
     g.deeds[3]!.ownerId = 'a';
-    expect(rentFor(g, 1, 'b', 7)).toBe(4);
+    expect(rentFor(g, 1, 'b', 7)).toBe(10);
   });
 
   it('charges nothing on a mortgaged property', () => {
@@ -157,20 +157,20 @@ describe('buying and rent', () => {
   it('scales depot tolls with the number of depots held', () => {
     let g = act(newGame(), 'a', { type: 'start_game' });
     g.deeds[5]!.ownerId = 'a';
-    expect(rentFor(g, 5, 'b', 7)).toBe(25);
+    expect(rentFor(g, 5, 'b', 7)).toBe(30);
     g.deeds[15]!.ownerId = 'a';
-    expect(rentFor(g, 5, 'b', 7)).toBe(50);
+    expect(rentFor(g, 5, 'b', 7)).toBe(65);
     g.deeds[25]!.ownerId = 'a';
     g.deeds[35]!.ownerId = 'a';
-    expect(rentFor(g, 5, 'b', 7)).toBe(200);
+    expect(rentFor(g, 5, 'b', 7)).toBe(150);
   });
 
   it('bills works off the dice total', () => {
     let g = act(newGame(), 'a', { type: 'start_game' });
     g.deeds[12]!.ownerId = 'a';
-    expect(rentFor(g, 12, 'b', 9)).toBe(36);
+    expect(rentFor(g, 12, 'b', 9)).toBe(45);
     g.deeds[28]!.ownerId = 'a';
-    expect(rentFor(g, 12, 'b', 9)).toBe(90);
+    expect(rentFor(g, 12, 'b', 9)).toBe(81);
   });
 });
 
@@ -184,7 +184,7 @@ describe('building', () => {
     expect(g.deeds[1]!.houses).toBe(1);
     expect(expectReject(g, 'a', { type: 'build', tileId: 1 })).toMatch(/evenly/);
     g = act(g, 'a', { type: 'build', tileId: 3 });
-    expect(getPlayer(g, 'a')!.cash).toBe(1500 - 100);
+    expect(getPlayer(g, 'a')!.cash).toBe(1500 - 120);
   });
 
   it('uses the improved rent ladder', () => {
@@ -192,9 +192,9 @@ describe('building', () => {
     g.deeds[1]!.ownerId = 'a';
     g.deeds[3]!.ownerId = 'a';
     g.deeds[1]!.houses = 3;
-    expect(rentFor(g, 1, 'b', 7)).toBe(90);
+    expect(rentFor(g, 1, 'b', 7)).toBe(110);
     g.deeds[1]!.houses = 5;
-    expect(rentFor(g, 1, 'b', 7)).toBe(250);
+    expect(rentFor(g, 1, 'b', 7)).toBe(300);
   });
 
   it('blocks mortgaging while the group has buildings', () => {
@@ -212,7 +212,7 @@ describe('building', () => {
     g = act(g, 'a', { type: 'build', tileId: 1 });
     const before = getPlayer(g, 'a')!.cash;
     g = act(g, 'a', { type: 'sell_building', tileId: 1 });
-    expect(getPlayer(g, 'a')!.cash).toBe(before + 25);
+    expect(getPlayer(g, 'a')!.cash).toBe(before + 30);
   });
 });
 
@@ -221,9 +221,9 @@ describe('mortgages', () => {
     let g = act(newGame(), 'a', { type: 'start_game' });
     g.deeds[39]!.ownerId = 'a';
     g = act(g, 'a', { type: 'mortgage', tileId: 39 });
-    expect(getPlayer(g, 'a')!.cash).toBe(1500 + 200);
+    expect(getPlayer(g, 'a')!.cash).toBe(1500 + 212);
     g = act(g, 'a', { type: 'unmortgage', tileId: 39 });
-    expect(getPlayer(g, 'a')!.cash).toBe(1500 + 200 - 220);
+    expect(getPlayer(g, 'a')!.cash).toBe(1500 + 212 - 234);
     expect(g.deeds[39]!.mortgaged).toBe(false);
   });
 });
@@ -325,8 +325,8 @@ describe('trading', () => {
     g = act(g, 'b', { type: 'accept_trade', tradeId: g.trades[0]!.id });
     expect(g.deeds[39]!.ownerId).toBe('b');
     expect(g.deeds[39]!.mortgaged).toBe(true);
-    // Bern price 400 -> mortgage value 200 -> 10% = 20.
-    expect(getPlayer(g, 'b')!.cash).toBe(bBefore - 20);
+    // Starling Spire price 425 -> mortgage value 212 -> rounded-up fee 22.
+    expect(getPlayer(g, 'b')!.cash).toBe(bBefore - 22);
   });
 
   it('refuses trades once the game is over', () => {
@@ -351,7 +351,7 @@ describe('debt and bankruptcy', () => {
     let g = act(newGame(), 'a', { type: 'start_game' });
     g.deeds[39]!.ownerId = 'b';
     g.deeds[37]!.ownerId = 'b';
-    g.deeds[39]!.houses = 5; // hotel: 2000 rent
+    g.deeds[39]!.houses = 5; // hotel: 1550 rent
     getPlayer(g, 'a')!.cash = 50;
     g = place(g, 'a', 37);
     g.dice = [1, 1];
@@ -382,7 +382,7 @@ describe('debt and bankruptcy', () => {
     g.phase = 'debt';
     g = act(g, 'a', { type: 'mortgage', tileId: 39 });
     expect(g.debt).toBeNull();
-    expect(getPlayer(g, 'a')!.cash).toBe(50);
+    expect(getPlayer(g, 'a')!.cash).toBe(62);
     expect(getPlayer(g, 'b')!.cash).toBe(1650);
   });
 
@@ -479,8 +479,8 @@ describe('determinism', () => {
 describe('host customisation', () => {
   it('renames a tile and clears it with an empty name', () => {
     let g = newGame();
-    g = renameTile(g, 6, 'Tel Aviv');
-    expect(tileLabel(g, 6)).toBe('Tel Aviv');
+    g = renameTile(g, 6, 'Lantern Quay');
+    expect(tileLabel(g, 6)).toBe('Lantern Quay');
     g = renameTile(g, 6, '  ');
     expect(g.tileNames[6]).toBeUndefined();
   });
@@ -518,7 +518,7 @@ describe('net worth', () => {
     g.deeds[1]!.ownerId = 'a';
     g.deeds[3]!.ownerId = 'a';
     g.deeds[1]!.houses = 2;
-    expect(netWorth(g, 'a')).toBe(1500 + 60 + 60 + 100);
+    expect(netWorth(g, 'a')).toBe(1500 + 80 + 95 + 120);
   });
 });
 
@@ -560,6 +560,9 @@ describe('SonToes easter egg', () => {
       { id: 'a', name: 'SonToes' },
       { id: 'b', name: 'Brix' },
     ], { seed: 7, turnSeconds: 0, auctionsEnabled: false });
+    // This fixture measures dice movement, so event cards must not teleport
+    // the player after a roll. Actual card effects are tested separately.
+    g.cards = g.cards.map(card => ({ ...card, effect: { kind: 'cash' as const, amount: 0 } }));
     return act(g, 'a', { type: 'start_game' });
   }
 
@@ -590,7 +593,7 @@ describe('SonToes easter egg', () => {
     return { history, end: g };
   }
 
-  it('rigs the dice so SonToes lands on Zuerich then Bern before finishing lap one', () => {
+  it('rigs the dice so SonToes lands on Sunward Summit then Starling Spire before finishing lap one', () => {
     const { history, end } = walk(sonToesGame(), 10);
     const stops = history.map((t) => t.to);
     const zuerich = stops.indexOf(37);
@@ -601,13 +604,14 @@ describe('SonToes easter egg', () => {
     expect(stops.slice(0, zuerich).every((pos) => pos < 37)).toBe(true);
     expect(getPlayer(end, 'a')!.sonToesLap).toBe(2);
 
-    // The pips shown must add up to the distance actually travelled — no jump.
+    // A roll onto Dispatch transfers the piece to the holding yard. All other
+    // destinations in this cash-card fixture must match the displayed dice.
     for (const t of history) {
       const [d1, d2] = t.dice;
       expect(d1).toBeGreaterThanOrEqual(1);
       expect(d2).toBeLessThanOrEqual(6);
-      const travelled = ((t.to - t.from) % 40 + 40) % 40;
-      expect(d1 + d2).toBe(travelled);
+      const landing = (t.from + d1 + d2) % 40;
+      expect(t.to).toBe(landing === 30 ? 10 : landing);
     }
   });
 

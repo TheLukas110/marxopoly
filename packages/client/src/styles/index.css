@@ -399,7 +399,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focu
 /* A forty-space board needs a minimum reading area. Small viewports can pan
    the board instead of forcing long names into only a few pixels. */
 @container (max-width: 520px) or (max-height: 520px) {
-  .board-view:not(.is-3d) .board-interaction { display: block; overflow: auto; padding: 12px; }
+  .board-view:not(.is-3d) .board-interaction { display: block; place-items: start; overflow: auto; padding: 12px; }
   .board-view:not(.is-3d) .board-camera {
     width: 440px; --board-unit: 4.4px;
     margin: var(--board-ring, 0px);

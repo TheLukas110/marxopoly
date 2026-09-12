@@ -1,16 +1,16 @@
-import { ringLayout } from './layout.js';
+import { districtLayout } from './layout.js';
 import type { MapDefinition } from './types.js';
 
 /**
- * The original Marxopoly look: a light board on a dark table, wide corner
- * tiles, soft rounded tiles. These values mirror the defaults in `index.css`,
+ * A light district map on a dark table, with soft rounded tiles.
+ * These values mirror the defaults in `index.css`,
  * spelled out here so the map reads as a complete, copyable template.
  */
 export const STANDARD: MapDefinition = {
   id: 'standard',
-  name: 'Standard',
-  description: 'The classic Marxopoly board.',
-  layout: ringLayout({ cornerFr: 1.5 }),
+  name: 'Civic Quarter',
+  description: 'A winding route through the Common Ground districts.',
+  layout: districtLayout(),
   vars: {
     '--board-face': '#ffffff',
     '--board-frame': '#b9c8de',
@@ -26,10 +26,10 @@ export const STANDARD: MapDefinition = {
     '--centre-muted': '#64748b',
   },
   special: {
-    start: { bg: '#22c55e', glyph: '⬅', label: 'GO' },
+    start: { bg: '#22c55e', glyph: '◎', label: 'START' },
     holding: { bg: '#f59e0b', glyph: '⏸', label: 'HOLD' },
     plaza: { bg: '#38bdf8', glyph: '★', label: 'PLAZA' },
-    dispatch: { bg: '#ef4444', glyph: '⚑', label: 'GO TO HOLD' },
+    dispatch: { bg: '#ef4444', glyph: '⚑', label: 'DISPATCH' },
     fortune: { bg: '#fde68a', glyph: '?' },
     ledger: { bg: '#bfdbfe', glyph: '✎' },
     tax: { bg: '#e2e8f0', glyph: '⛃' },

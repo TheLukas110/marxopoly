@@ -17,6 +17,20 @@ const server = await createServer({
 after(() => server.close());
 const { moveCamera, fitBoardCamera } = await server.ssrLoadModule('/src/board-camera.ts');
 
+test('district route visits every cell once and closes with adjacent steps', async () => {
+  const { districtLayout, tokenSpot } = await server.ssrLoadModule('/src/maps/layout.ts');
+  const layout = districtLayout();
+  const cells = BOARD.map(tile => layout.position(tile.id));
+  assert.equal(new Set(cells.map(p => `${p.gridRow},${p.gridColumn}`)).size, BOARD.length);
+  for (const tile of BOARD) {
+    const a = layout.position(tile.id), b = layout.position(tile.id + 1);
+    assert.equal(Math.abs(a.gridRow - b.gridRow) + Math.abs(a.gridColumn - b.gridColumn), 1);
+    const token = tokenSpot(layout, tile.id);
+    assert.ok(token.x > (a.gridColumn - 1) / 8 * 100 && token.x < a.gridColumn / 8 * 100);
+    assert.ok(token.y > (a.gridRow - 1) / 6.4 * 100 && token.y < a.gridRow / 6.4 * 100);
+  }
+});
+
 test('camera can orbit repeatedly and never flip beneath the board', () => {
   const start = { rotation: -25, tilt: 40 };
   assert.deepEqual(moveCamera(start, 360 * 100), start);

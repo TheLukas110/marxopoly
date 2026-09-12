@@ -45,7 +45,7 @@ export default function GameRoom() {
     <div className="game">
       <header className="game-head">
         <div className="brand small">
-          Marxopoly<span className="dot" />
+          Common Ground<span className="dot" />
         </div>
         <span className="code-chip">{roomId}</span>
         {spectating && <span className="tag you">Watching</span>}

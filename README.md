@@ -1,10 +1,15 @@
-# Marxopoly
+# Common Ground
 
 A real-time, multiplayer property-trading board game for the browser. Create a table, share the
 six-character code, and play with two to eight people — or fill the empty seats with bots.
 
-Marxopoly is an original game with its own board, its own card decks and its own rules engine. It is
-not affiliated with, endorsed by, or derived from any commercial board game or its publisher.
+Common Ground is a working title for an independently maintained property-trading game.
+It is not affiliated with or endorsed by Hasbro. Its mechanics have substantial similarities
+to Monopoly; renaming and redesigning it do not establish legal clearance.
+See [the IP review and remaining release checks](docs/IP-REVIEW.md).
+
+For hosting, use [the Cloudflare Pages deployment guide](docs/CLOUDFLARE-PAGES.md):
+`pnpm build:pages`, output `packages/client/dist`, plus a separately hosted Node.js game server.
 
 ---
 
@@ -38,7 +43,7 @@ whatever state the server broadcasts. Every rule lives in one place.
 - **Watch a game in progress** — a table that has already started still shows in the list; joining it
   (or a folded player staying on) puts you in view-only mode with no board actions. Finished games
   drop off the list entirely.
-- **Bright, readable board** — full-colour property headers, short board labels, large tokens with
+- **Bright, readable board** — district colour markers, short board labels, large tokens with
   player initials, and an owner bar on each tile's outer edge.
 - **Turn timers** — configurable, with sensible auto-resolution when they expire.
 - **Bots** — heuristic opponents that buy, build, bid and answer trades.
@@ -48,8 +53,8 @@ whatever state the server broadcasts. Every rule lives in one place.
 
 ### Prerequisites
 
-- Node.js 20 or newer
-- Corepack (included with supported Node.js releases)
+- Node.js 22 (also used by the deployment guide)
+- Corepack, enabled for the pinned pnpm version
 
 From the repository root, enable the pinned pnpm version and install all workspace dependencies:
 
@@ -119,7 +124,7 @@ pnpm build
 pnpm start        # serves the built client and the socket server on http://localhost:3001
 ```
 
-The normal release workflow from the `Marxopoly` directory is therefore:
+The local production workflow from the repository root is therefore:
 
 ```bash
 pnpm build
@@ -210,8 +215,9 @@ arrow keys orbit, **+ / −** zoom, and **Home** resets the view. Mouse-wheel zo
 only while the canvas has focus so normal page scrolling remains available.
 Click a space or choose it in **Inspect a space** to see its details. Labels can be hidden.
 3D labels stay at their space anchors and yield to hovered/selected spaces when crowded;
-prices appear on active labels and in the inspector. Small screens show corner and active
-labels. The 2D board fits names to each cell using the map's actual font, with full names
+prices appear on active labels and in the inspector. Small screens show landmark and active
+labels. All 3D routes are circular; the 2D view uses a numbered district route through
+equal-sized spaces with the turn controls below it. The 2D board fits names to each cell using the map's actual font, with full names
 available in the tile tooltip and property details. Extremely long custom names can also
 be scrolled within their label.
 Compact 2D viewports keep a 440px board and allow scrolling in both directions instead

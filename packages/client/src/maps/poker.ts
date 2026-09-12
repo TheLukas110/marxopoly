@@ -1,4 +1,4 @@
-import { ringLayout } from './layout.js';
+import { districtLayout } from './layout.js';
 import type { MapDefinition } from './types.js';
 
 /**
@@ -7,14 +7,13 @@ import type { MapDefinition } from './types.js';
  * as an inset gold ellipse (see `.map-poker` in `styles/index.css`).
  *
  * The two card decks pick up the suit colours: Fortune is a red suit, Ledger a
- * black one. Only CSS gradients and unicode suit glyphs are used — no imagery
- * to license, and no tile name is drawn into the skin.
+ * black one. Uses CSS gradients and unicode suit glyphs; tile names are separate.
  */
 export const POKER: MapDefinition = {
   id: 'poker',
   name: 'Poker Table',
   description: 'Green baize, a mahogany rail and gold-edged cards.',
-  layout: ringLayout({ cornerFr: 1.5 }),
+  layout: districtLayout(),
   vars: {
     '--board-face':
       'radial-gradient(120% 100% at 50% 35%, #1c7a4c 0%, #12613b 45%, #0a4227 100%)',
@@ -34,10 +33,10 @@ export const POKER: MapDefinition = {
   },
   wrapClass: 'map-poker',
   special: {
-    start: { bg: '#146c43', glyph: '⬅', label: 'GO' },
+    start: { bg: '#146c43', glyph: '◎', label: 'START' },
     holding: { bg: '#3a2f2a', glyph: '⏸', label: 'HOLD' },
     plaza: { bg: '#8a6d1f', glyph: '★', label: 'PLAZA' },
-    dispatch: { bg: '#8b1a1a', glyph: '⚑', label: 'GO TO HOLD' },
+    dispatch: { bg: '#8b1a1a', glyph: '⚑', label: 'DISPATCH' },
     fortune: { bg: '#a11d33', glyph: '♥' },
     ledger: { bg: '#23272b', glyph: '♠' },
     tax: { bg: '#5b4a1e', glyph: '⛃' },

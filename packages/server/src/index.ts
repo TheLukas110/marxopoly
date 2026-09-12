@@ -19,8 +19,8 @@ import { RoomManager, type Room } from './rooms.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // CLIENT_ORIGIN=* is an explicit opt-in to a fully open CORS policy. Otherwise
-// we allow only: the configured origin(s), localhost, private-LAN addresses,
-// and the ngrok tunnel origin once it is known.
+// Production accepts the configured origins and an explicitly enabled tunnel.
+// Development additionally accepts localhost and private LAN addresses.
 const openCors = config.clientOrigin === '*';
 const staticOrigins = openCors
   ? []
@@ -31,6 +31,7 @@ function originAllowed(origin?: string): boolean {
   if (!origin) return true; // same-origin, curl, native apps
   if (staticOrigins.includes(origin)) return true;
   if (tunnelOrigin && origin === tunnelOrigin) return true;
+  if (config.isProd) return false;
   try {
     const { hostname, protocol } = new URL(origin);
     if (protocol !== 'http:' && protocol !== 'https:') return false;
@@ -82,6 +83,8 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
   pingTimeout: 20_000,
   // Cap inbound frames; nothing this app accepts is anywhere near this size.
   maxHttpBufferSize: 32_768,
+  // Socket.IO CORS only covers polling; enforce the same policy on upgrades.
+  allowRequest: (req, cb) => cb(null, openCors || originAllowed(req.headers.origin)),
 });
 
 /** socket.id -> where that socket is seated. `spectator` sockets have no game seat. */
@@ -487,7 +490,7 @@ httpServer.listen(config.port, () => {
     `http://localhost:${config.port}`,
     ...lanAddresses().map((ip) => `http://${ip}:${config.port}`),
   ];
-  banner(['Marxopoly server is running', '', ...urls.map((u) => `    ${u}`)]);
+  banner(['Common Ground server is running', '', ...urls.map((u) => `    ${u}`)]);
   if (config.share) {
     void openTunnel();
   } else if (!config.isProd) {
