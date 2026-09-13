@@ -169,20 +169,9 @@ Copy `.env.example` to `.env` in the repo root (the server reads it at startup).
 
 The client can point at a different backend with `VITE_SERVER_URL`.
 
-### Impressum (draft)
-
-The German provider notice is available at `/impressum` and linked from the home page,
-lobby and game. The link opens a separate tab so a game can stay open.
-Edit **`packages/client/src/imprint.ts`** to replace the Max Mustermann / Musterfirma
-examples with the operator's public details. Keep `isDraft: true` during preparation;
-the page clearly labels the sample data. Optional fields (legal form, representative,
-phone, register, VAT ID and business ID) are hidden when empty. Rebuild the client
-after changing these values. These are public details, so do not put secrets here.
-
-The structure refers to [§ 5 DDG](https://www.gesetze-im-internet.de/ddg/__5.html).
-Before publication, replace and check the applicable provider details, then set
-`isDraft: false`. This draft does not complete the separate legal, privacy or
-security reviews listed in `TODO_next.txt`.
+Cloudflare Pages is protected by HTTP Basic Auth. Configure `BASIC_AUTH_USER` and
+`BASIC_AUTH_PASS` as Pages secrets for Preview and Production; see the
+[deployment guide](docs/CLOUDFLARE-PAGES.md#password-protection).
 
 Per-table house rules (starting cash, salary, auctions on/off, even build, double rent on full sets,
 plaza pot, turn timer, max players) are set by the host in the lobby.
