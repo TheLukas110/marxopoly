@@ -21,6 +21,9 @@ export default defineConfig(({ mode }) => {
   }
   return {
     envDir,
+    // The Node-served site always connects to the server serving its page.
+    // Pages builds continue to use the separately configured HTTPS backend.
+    define: mode === 'standalone' ? { 'import.meta.env.VITE_SERVER_URL': JSON.stringify('') } : undefined,
     plugins: [react()],
     server: {
       port: 5173,

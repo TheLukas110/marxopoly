@@ -124,6 +124,12 @@ pnpm build
 pnpm start        # serves the built client and the socket server on http://localhost:3001
 ```
 
+`pnpm build:server` is equivalent to `pnpm build`: both rebuild the server and its
+standalone frontend. This frontend connects to the same address you open, ignoring
+any leftover `VITE_SERVER_URL`. Use `pnpm build:pages` for the separately hosted
+Cloudflare frontend. After a Pages build, rebuild with `pnpm build:server` before
+playing through the local Node server again.
+
 The local production workflow from the repository root is therefore:
 
 ```bash

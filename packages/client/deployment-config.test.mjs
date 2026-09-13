@@ -18,6 +18,10 @@ test('Pages rejects unusable backend origins and accepts a separate HTTPS backen
     const config = await resolveConfig({ configFile, mode: 'pages', logLevel: 'silent' }, 'build');
     assert.equal(config.env.VITE_SERVER_URL, 'https://game.example.com');
     assert.equal(config.build.sourcemap, false);
+    // A leftover Pages/test URL must never redirect a Node-served local game.
+    process.env.VITE_SERVER_URL = 'http://localhost:3101';
+    const standalone = await resolveConfig({ configFile, mode: 'standalone', logLevel: 'silent' }, 'build');
+    assert.equal(standalone.define['import.meta.env.VITE_SERVER_URL'], JSON.stringify(''));
     process.env.VITE_SERVER_URL = '';
     await resolveConfig({ configFile, mode: 'production', logLevel: 'silent' }, 'build');
   } finally {

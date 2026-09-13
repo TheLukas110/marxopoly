@@ -55,6 +55,17 @@ separate room lists. Keep one instance; disable sleep/scale-to-zero for active g
 Persistent rooms or horizontal scaling would require another backend change.
 The repository's Dockerfile remains an alternative for hosts that accept containers.
 
+`pnpm build:server` also rebuilds the frontend served by Node. Open
+`http://localhost:3001` after `pnpm start` for local play (or your configured port).
+This standalone build connects to the origin serving the page and ignores any
+leftover `VITE_SERVER_URL`, including a URL from an earlier Pages/test build.
+The server accepts browser connections to its own host even in production mode;
+separate Pages origins still need `CLIENT_ORIGIN`. If a reverse proxy rewrites
+the Host header, include the public backend origin in that allowlist too.
+
+Pages and standalone builds share the output directory. After running a Pages
+build locally, run `pnpm build:server` again before starting a local game.
+
 ## 2. Configure Cloudflare Pages
 
 Connect the Git repository in **Workers & Pages → Pages → Import an existing Git repository**.

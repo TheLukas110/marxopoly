@@ -19,22 +19,25 @@ import { RoomManager, type Room } from './rooms.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // CLIENT_ORIGIN=* is an explicit opt-in to a fully open CORS policy. Otherwise
-// Production accepts the configured origins and an explicitly enabled tunnel.
+// Production accepts its own host, configured origins and an enabled tunnel.
 // Development additionally accepts localhost and private LAN addresses.
 const openCors = config.clientOrigin === '*';
 const staticOrigins = openCors
   ? []
-  : config.clientOrigin.split(',').map((o) => o.trim()).filter(Boolean);
+  : config.clientOrigin.split(',').map((o) => o.trim().replace(/\/+$/, '')).filter(Boolean);
 let tunnelOrigin: string | null = null;
 
-function originAllowed(origin?: string): boolean {
-  if (!origin) return true; // same-origin, curl, native apps
+function originAllowed(origin?: string, requestHost?: string): boolean {
+  if (!origin) return true; // curl and native apps may omit Origin
   if (staticOrigins.includes(origin)) return true;
   if (tunnelOrigin && origin === tunnelOrigin) return true;
-  if (config.isProd) return false;
   try {
     const { hostname, protocol } = new URL(origin);
     if (protocol !== 'http:' && protocol !== 'https:') return false;
+    // Browsers send Origin even on same-origin WebSocket connections.
+    // Use Host, not untrusted X-Forwarded-Host headers, for this comparison.
+    if (new URL(origin).host === requestHost) return true;
+    if (config.isProd) return false;
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') return true;
     if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) return true;
     if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname)) return true;
@@ -51,7 +54,7 @@ app.use(
   cors(
     openCors
       ? { origin: true }
-      : (req, cb) => cb(null, { origin: originAllowed(req.headers.origin ?? undefined) }),
+      : (req, cb) => cb(null, { origin: originAllowed(req.headers.origin, req.headers.host) }),
   ),
 );
 app.use(express.json({ limit: '64kb' }));
@@ -77,14 +80,15 @@ app.get(/^(?!\/api|\/socket\.io|\/health).*/, (_req, res, next) => {
 
 const httpServer = createServer(app);
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
-  cors: openCors
-    ? { origin: true, methods: ['GET', 'POST'] }
-    : { origin: (origin, cb) => cb(null, originAllowed(origin ?? undefined)), methods: ['GET', 'POST'] },
+  cors: (req, cb) => cb(null, {
+    origin: openCors || originAllowed(req.headers.origin, req.headers.host),
+    methods: ['GET', 'POST'],
+  }),
   pingTimeout: 20_000,
   // Cap inbound frames; nothing this app accepts is anywhere near this size.
   maxHttpBufferSize: 32_768,
   // Socket.IO CORS only covers polling; enforce the same policy on upgrades.
-  allowRequest: (req, cb) => cb(null, openCors || originAllowed(req.headers.origin)),
+  allowRequest: (req, cb) => cb(null, openCors || originAllowed(req.headers.origin, req.headers.host)),
 });
 
 /** socket.id -> where that socket is seated. `spectator` sockets have no game seat. */

@@ -127,6 +127,7 @@ export function getState(): ClientStore {
 export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(SERVER_URL, {
   autoConnect: true,
   transports: ['websocket', 'polling'],
+  tryAllTransports: true,
 });
 
 socket.on('connect', () => {
