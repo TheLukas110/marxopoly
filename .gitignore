@@ -6,3 +6,5 @@ packages/*/dist/
 packages/*/dist-types/
 packages/*/*.tsbuildinfo
 .wrangler/
+.dev.vars
+.dev.vars.*

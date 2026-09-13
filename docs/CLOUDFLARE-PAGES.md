@@ -13,8 +13,8 @@ point the new frontend at an older production backend.
 
 For an existing Pages project, leave its production branch as `main`, and enable
 preview builds for `develop`. Set the backend URL in the **Preview** environment.
-Open `https://develop.YOUR-PROJECT.pages.dev` to review the changes. A preview URL
-is publicly accessible unless you protect it with Cloudflare Access.
+Open `https://develop.YOUR-PROJECT.pages.dev` to review the changes using the
+configured Basic Auth credentials.
 
 For a new project, create a staging Pages project with production branch `develop`.
 Its URL is `https://YOUR-STAGING-PROJECT.pages.dev`. Create/configure the production
@@ -88,16 +88,44 @@ rebuild. It is public configuration, not a secret. Use an origin only, with no
 `/socket.io` suffix or other path. The Pages build fails on missing, HTTP, or
 localhost values so a broken default cannot silently ship.
 
-Pages uploads only the client output. Its `_redirects` file serves `/impressum`
-through React, and `_headers` supplies browser headers and immutable asset caching.
+Pages uploads the client output and compiles `functions/_middleware.js` from the
+repository root. `_routes.json` sends all paths, including static assets, through
+the authentication middleware, which sets browser headers and disables caching.
 Invitations use the frontend origin even if a backend advertises a tunnel URL.
-There is no Pages Function or Worker to configure and no Pages start command.
+There is no Pages start command.
+
+### Password protection
+
+Set `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` as encrypted Pages environment variables
+for both **Preview** and **Production**, then redeploy. Do not prefix them with
+`VITE_`: they are server-side secrets. Choose a nonempty username without a colon
+and a strong password. Passwords may contain colons and Unicode characters.
+Missing or incorrect credentials return `401` with a `WWW-Authenticate` challenge,
+which opens the browser's login dialog. Missing configuration also denies access.
+
+In Pages Functions settings, select **Fail closed** for request-limit failures so
+static files cannot bypass authentication when the Functions quota is exhausted.
+
+Test the actual Pages middleware from the repository root:
+
+```bash
+VITE_SERVER_URL=https://YOUR-GAME-SERVER.example.com pnpm build:pages
+pnpm dlx wrangler pages dev packages/client/dist
+```
+
+Open `http://localhost:8788`; the local defaults are `local` / `local-test`.
+For custom local credentials, add `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` to a
+gitignored `.dev.vars` at the repository root. Defaults apply only to localhost,
+127.0.0.1 and IPv6 loopback. Vite dev/preview and the standalone Node server do not
+run Pages middleware. This protects the Pages frontend; the separately hosted
+game server and any frontend served by it are outside this protection.
 
 ## 3. Verify before production
 
 On the preview site, create a private table and open its copied invitation in a
 second browser/profile. Join, start a game, roll, chat, and refresh the guest tab
-to verify reconnect. Open `/impressum` directly. Check both desktop and mobile,
+to verify reconnect. In a fresh browser profile, verify the login prompt and that
+incorrect credentials also block direct `/assets/` requests. Check desktop and mobile,
 and switch between 2D and 3D. Changing the backend URL requires rebuilding Pages.
 
 Local checks:
@@ -120,11 +148,12 @@ When approved, merge `develop` into `main`, deploy the matching backend revision
 and let Pages build `main` with the production backend URL. Schedule backend
 updates between games. No live deployment was performed by this change.
 
-Before public release, replace the sample operator details in
-`packages/client/src/imprint.ts` and review [the outstanding IP issues](IP-REVIEW.md).
+Before public release, review [the outstanding IP issues](IP-REVIEW.md).
 
 ## Sources
 
+- [Pages middleware](https://developers.cloudflare.com/pages/functions/middleware/)
+- [Pages Functions routing](https://developers.cloudflare.com/pages/functions/routing/)
 - [Pages build configuration](https://developers.cloudflare.com/pages/configuration/build-configuration/)
 - [Build image and environment overrides](https://developers.cloudflare.com/pages/configuration/build-image/)
 - [Preview deployments and branch aliases](https://developers.cloudflare.com/pages/configuration/preview-deployments/)

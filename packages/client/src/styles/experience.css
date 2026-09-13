@@ -43,15 +43,6 @@
 html { scroll-behavior: smooth; scroll-padding-top: 28px; }
 body { font-family: "Segoe UI", system-ui, sans-serif; }
 .legal-footer { flex: none; padding: 12px 70px 18px 20px; text-align: center; font-size: 13px; color: var(--muted); }
-.legal-footer a { display: inline-block; padding: 8px; text-underline-offset: 3px; }
-.imprint-page { width: min(100% - 40px, 720px); margin: 40px auto; padding-bottom: 40px; overflow-wrap: anywhere; }
-.imprint-page h1 { margin: 32px 0 16px; }
-.imprint-page h2 { margin-bottom: 12px; font-size: 20px; }
-.imprint-page p { margin: 12px 0; line-height: 1.6; }
-.imprint-page section { margin: 28px 0; }
-.imprint-page address { font-style: normal; line-height: 1.7; }
-.imprint-page address > * { display: block; }
-.imprint-incomplete { border: 1px solid var(--warn); border-radius: 8px; padding: 16px; }
 a { color: inherit; }
 button, input, select { -webkit-tap-highlight-color: transparent; }
 button, a, input, select { touch-action: manipulation; }
@@ -81,7 +72,23 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; gap:
 .district-board .tile-buildings { position: absolute; top: 9px; right: 0; font-size: 7px; color: var(--tile-ink); }
 .district-board .tile-buildings .hotel { background: var(--centre-ink); }
 .district-board .tile-body { padding-bottom: 22%; }
-.district-board .route-step { font-size: clamp(6px, calc(var(--board-unit) * 1.5), 11px); align-self: flex-start; color: var(--tile-price-ink); }
+.district-board .route-step {
+  display: inline-flex; align-items: center; justify-content: space-between; gap: 4px;
+  align-self: flex-start; flex-shrink: 0; padding: 1px 4px; border-radius: 4px;
+  font: 750 clamp(9px, calc(var(--board-unit) * 1.6), 12px)/1.1 "Segoe UI", sans-serif;
+  background: #213b35; color: #fff8dc;
+}
+.district-board .route-arrow { font-size: 1.45em; line-height: 1; }
+/* Mark the exit edge as well as the numbered step, including the return to Start. */
+.district-board .tile::after {
+  content: ''; position: absolute; width: 9px; height: 9px;
+  background: #213b35; filter: drop-shadow(0 0 1px #fff8dc);
+  clip-path: polygon(0 0, 100% 50%, 0 100%); pointer-events: none;
+}
+.district-board .tile[data-direction="→"]::after { right: 1px; top: calc(50% - 4.5px); }
+.district-board .tile[data-direction="←"]::after { left: 1px; top: calc(50% - 4.5px); transform: rotate(180deg); }
+.district-board .tile[data-direction="↓"]::after { bottom: 1px; left: calc(50% - 4.5px); transform: rotate(90deg); }
+.district-board .tile[data-direction="↑"]::after { top: 1px; left: calc(50% - 4.5px); transform: rotate(-90deg); }
 .district-board .board-centre { padding: 6px; gap: 5px; flex-direction: row; flex-wrap: wrap; justify-content: center; overflow: auto; }
 .district-board .board-centre .brand { font-size: clamp(12px, calc(var(--board-unit) * 2.7), 22px); }
 .district-board .centre-card { max-width: 65%; margin: 0; padding: 5px; font-size: clamp(8px, calc(var(--board-unit) * 1.8), 13px); }

@@ -40,6 +40,7 @@ export default function BoardTile({ tile, state, layout, special: specialMap, on
     <button
       type="button"
       className={classes}
+      data-direction={layout.direction(tile.id)}
       style={{
         ...layout.position(tile.id),
         ...(isCorner || !ownable ? { '--tile-bg': special?.bg ?? '#f1f5f9' } : null),
@@ -62,7 +63,9 @@ export default function BoardTile({ tile, state, layout, special: specialMap, on
       )}
 
       <span className="tile-body">
-        <span className="route-step" aria-hidden="true">{tile.id + 1} {layout.direction(tile.id)}</span>
+        <span className="route-step" aria-hidden="true">
+          {tile.id + 1}<span className="route-arrow">{layout.direction(tile.id)}</span>
+        </span>
         {!ownable && special && <span className="tile-glyph">{special.glyph}</span>}
         <TileName skin={specialMap}>{label}</TileName>
         {'price' in tile && <span className="tile-price">{money(tile.price)}</span>}
