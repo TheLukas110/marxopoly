@@ -6,6 +6,6 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3001"
-      CLIENT_ORIGIN: "*"
+      CLIENT_ORIGIN: "${CLIENT_ORIGIN:-http://localhost:3001}"
       TURN_TIMEOUT_SECONDS: "90"
     restart: unless-stopped

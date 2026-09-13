@@ -1,3 +1,8 @@
 node_modules
 .env
 .env.local
+.env.*.local
+packages/*/dist/
+packages/*/dist-types/
+packages/*/*.tsbuildinfo
+.wrangler/

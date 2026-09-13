@@ -28,7 +28,7 @@ function GameApp() {
     <div className="app">
       {!connected && <div className="banner">Reconnecting to the server…</div>}
       {!roomId || !game ? <Home /> : game.phase === 'lobby' ? <Lobby /> : <GameRoom />}
-      <footer className="legal-footer"><a href="/impressum" target="_blank" rel="noopener">Impressum<span className="sr-only"> (öffnet in neuem Tab)</span></a></footer>
+      <footer className="legal-footer"><span>An independent game. Not affiliated with Hasbro.</span><a href="/impressum" target="_blank" rel="noopener">Impressum<span className="sr-only"> (öffnet in neuem Tab)</span></a></footer>
       <ThemeToggle />
       <Toast />
     </div>

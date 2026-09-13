@@ -62,6 +62,7 @@ export default function BoardTile({ tile, state, layout, special: specialMap, on
       )}
 
       <span className="tile-body">
+        <span className="route-step" aria-hidden="true">{tile.id + 1} {layout.direction(tile.id)}</span>
         {!ownable && special && <span className="tile-glyph">{special.glyph}</span>}
         <TileName skin={specialMap}>{label}</TileName>
         {'price' in tile && <span className="tile-price">{money(tile.price)}</span>}

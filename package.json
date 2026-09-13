@@ -2,7 +2,7 @@
   "name": "marxopoly",
   "version": "1.0.0",
   "private": true,
-  "description": "Marxopoly — a real-time multiplayer property trading board game for the browser.",
+  "description": "Common Ground — a real-time multiplayer property trading board game for the browser.",
   "license": "MIT",
   "packageManager": "pnpm@10.28.0",
   "engines": {
@@ -10,7 +10,9 @@
   },
   "scripts": {
     "dev": "pnpm --parallel --filter \"./packages/*\" dev",
-    "build": "pnpm --filter @marxopoly/shared build && pnpm --filter @marxopoly/server build && pnpm --filter @marxopoly/client build",
+    "build": "pnpm build:server",
+    "build:pages": "pnpm --filter @marxopoly/shared build && pnpm --filter @marxopoly/client build --mode pages",
+    "build:server": "pnpm --filter @marxopoly/shared build && pnpm --filter @marxopoly/server build && pnpm --filter @marxopoly/client build --mode standalone",
     "start": "pnpm --filter @marxopoly/server start",
     "share": "pnpm build && pnpm --filter @marxopoly/server share",
     "typecheck": "pnpm -r typecheck",

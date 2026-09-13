@@ -19,7 +19,7 @@ import type { Card, CardEffect, CardInput } from '../types.js';
  *
  * REFERRING TO A STREET
  *   advanceTo() takes the tile's name exactly as it appears on the board, e.g.
- *   advanceTo('Tel Aviv'). Or use one of the aliases below — add a line there
+ *   advanceTo('Lantern Quay'). Or use one of the aliases below — add a line there
  *   for any new street a card should send players to. Either way a name that is
  *   not on the board throws at startup, so cards never drift out of sync with
  *   data/board.ts.
@@ -41,9 +41,9 @@ const collectFromEveryone = (amount: number): CardEffect => ({ kind: 'collect_ea
 /** You pay every other player `amount`. */
 const payEveryone = (amount: number): CardEffect => ({ kind: 'pay_each', amount });
 
-/** Jump straight to a tile, named as it appears on the board ('Tel Aviv') or by
+/** Jump straight to a tile, named as it appears on the board ('Lantern Quay') or by
  *  index. You still draw salary if you pass Start unless `collectStart: false`
- *  is passed (a "go to jail" style move). An unknown name throws at load. */
+ *  is passed (an unpaid transfer). An unknown name throws at load. */
 const advanceTo = (
   tile: string | number,
   opts: { collectStart?: boolean } = {},
@@ -79,12 +79,12 @@ const repairBill = (perHouse: number, perHotel: number): CardEffect => ({
 // ---------------------------------------------------------------------------
 // Street aliases — looked up in data/board.ts by name, so a card and the board
 // can never disagree. Add a line for any new street a card points at (or pass
-// the name straight to advanceTo, e.g. advanceTo('Tel Aviv')). A name that is
+// the name straight to advanceTo, e.g. advanceTo('Lantern Quay')). A name that is
 // not on the board throws the moment the game loads.
 // ---------------------------------------------------------------------------
 
 const START = tileIdByName('Start');
-const TEL_AVIV = tileIdByName('Tel Aviv');
+const LANTERN_QUAY = tileIdByName('Lantern Quay');
 
 // ---------------------------------------------------------------------------
 // Deck assembly
@@ -106,38 +106,33 @@ const buildDeck = (deck: 'fortune' | 'ledger', rows: CardRow[]): readonly Card[]
 // ---------------------------------------------------------------------------
 
 export const FORTUNE_CARDS: readonly Card[] = buildDeck('fortune', [
-  card('f01', 'The district awards you a civic grant. Collect 150.',                         collect(150)),
-  card('f02', 'Return to Start and draw your salary.',                                       advanceTo(START)),
-  card('f06', 'Roadworks reroute you three tiles back.',                                     moveBy(-3)),
-  card('f08', 'Building inspection. Pay 25 per house and 100 per hotel you own.',            repairBill(25, 100)),
-  card('f09', 'You win the district raffle. Every other player pays you 50.',               collectFromEveryone(50)),
-  card('f10', 'Your bond matures. Collect 100.',                                            collect(100)),
-  card('f11', 'Legal fees on a boundary claim. Pay 75.',                                    pay(75)),
-  card('f14', 'A reprieve is granted. Keep this card until you need it.',                    reprieveCard()),
-  card('f15', 'You host the district gala. Pay every other player 40.',                      payEveryone(40)),
-  card('f16', 'Dividend from your holdings. Collect 60.',                                    collect(60)),
-  card('f17', 'Netanyahu needs Money. Donate 80.',                                          pay(80)),
-  card('f18', 'You mobilize the IDF to steal 50 from everyone.',                             collectFromEveryone(50)),
-  card('f19', 'You have been summoned by the big Yahu. You travel to Tel Aviv.',             advanceTo(TEL_AVIV)),
+  card('f01', 'Your rooftop seed nursery supplies the whole district. Receive 135.', collect(135)),
+  card('f02', 'The night ferry brings you to Lantern Quay. Travel there, collecting salary if the route crosses Start.', advanceTo(LANTERN_QUAY)),
+  card('f03', 'A footbridge opens beside your workshop. Move forward two spaces.', moveBy(2)),
+  card('f04', 'The mural crew borrows your scaffolding. Each other player pays you 25.', collectFromEveryone(25)),
+  card('f05', 'A rainstorm damages the shared tool library. Contribute 65 to repairs.', pay(65)),
+  card('f06', 'A canal towpath is closed for nesting birds. Move back two spaces.', moveBy(-2)),
+  card('f07', 'You underwrite the neighbourhood lantern walk. Give each other player 30.', payEveryone(30)),
+  card('f08', 'The insulation team visits your buildings. Pay 18 per house and 85 per hotel.', repairBill(18, 85)),
+  card('f09', 'Your surplus solar power lights the evening market. Receive 95.', collect(95)),
+  card('f10', 'A cargo cycle is ready at the next exchange. Advance to the next depot; any toll is the usual amount.', advanceToNearest('depot', 1)),
+  card('f11', 'The district mediator reserves you an appointment. Keep this pass to leave the holding yard on a later turn.', reprieveCard()),
+  card('f12', 'A repair cafe orders your spare components. Receive 55.', collect(55)),
 ]);
 
 export const LEDGER_CARDS: readonly Card[] = buildDeck('ledger', [
-  card('l01', 'The quarterly audit closes in your favour. Collect 200.',                     collect(200)),
-  card('l02', 'Return to Start and draw your salary.',                                       advanceTo(START)),
-  card('l03', 'Clinic levy. Pay 100.',                                                       pay(100)),
-  card('l04', 'Your insurance premium is refunded. Collect 45.',                             collect(45)),
-  card('l05', 'A distant relation leaves you a small estate. Collect 250.',                  collect(250)),
-  card('l06', 'A clearing error resolves your way. Collect 175.',                            collect(175)),
-  card('l07', 'Report to the holding yard. Do not pass Start.',                              goToHoldingYard()),
-  card('l08', 'Street repairs are assessed. Pay 40 per house and 115 per hotel.',            repairBill(40, 115)),
-  card('l09', 'It is your founding day. Collect 20 from every other player.',                collectFromEveryone(20)),
-  card('l10', 'A consultancy fee lands. Collect 25.',                                        collect(25)),
-  card('l11', 'School tax assessment. Pay 150.',                                             pay(150)),
-  card('l12', 'A reprieve is granted. Keep this card until you need it.',                    reprieveCard()),
-  card('l13', 'You clear out surplus stock. Collect 50.',                                    collect(50)),
-  card('l14', 'A late delivery fine catches up with you. Pay 50.',                           pay(50)),
-  card('l15', 'Advance to Tel Aviv. If you pass Start, draw your salary.',                    advanceTo(TEL_AVIV)),
-  card('l16', 'Go back three tiles.',                                                        moveBy(-3)),
+  card('l01', 'The cooperative buys your composting design. Receive 165.', collect(165)),
+  card('l02', 'A new district survey begins at Start. Travel there and receive your salary.', advanceTo(START)),
+  card('l03', 'Your stall needs a new weather canopy. Pay 70.', pay(70)),
+  card('l04', 'The archive rents your collection of old maps. Receive 85.', collect(85)),
+  card('l05', 'A neighbourhood kitchen orders a month of herbs. Receive 115.', collect(115)),
+  card('l06', 'The canal cooperative returns your equipment deposit. Receive 125.', collect(125)),
+  card('l07', 'Your delivery permit needs a signature. Transfer directly to the holding yard without salary.', goToHoldingYard()),
+  card('l08', 'The water-saving retrofit is due. Pay 22 per house and 95 per hotel.', repairBill(22, 95)),
+  card('l09', 'You coordinate a shared bulk order. Each other player reimburses you 15.', collectFromEveryone(15)),
+  card('l10', 'You fund seedlings for the public orchard. Pay 105.', pay(105)),
+  card('l11', 'Your permit paperwork is pre-approved. Keep this pass to leave the holding yard on a later turn.', reprieveCard()),
+  card('l12', 'A survey crew lends you a shortcut. Move forward one space.', moveBy(1)),
 ]);
 
 export const ALL_CARDS: readonly Card[] = [...FORTUNE_CARDS, ...LEDGER_CARDS];

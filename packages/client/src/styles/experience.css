@@ -75,7 +75,17 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; gap:
 .home-nav { height: 88px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--line); }
 .wordmark { display: inline-flex; align-items: center; font-size: 26px; font-weight: 750; letter-spacing: -1.2px; text-decoration: none; }
 .wordmark-period { color: var(--accent); }
-.brand-symbol { width: 31px; height: 31px; margin-right: 10px; background: var(--accent); color: #253328; display: grid; place-items: center; border-radius: 8px; font-size: 27px; line-height: 1; padding-bottom: 4px; transform: rotate(-6deg); }
+.brand-symbol { width: 31px; height: 31px; margin-right: 10px; background: var(--accent); color: #253328; display: grid; place-items: center; border-radius: 50%; font-size: 25px; line-height: 1; flex: none; }
+.district-board .tile { flex-direction: column; }
+.district-board .tile-head { position: absolute; top: 4px; right: 4px; width: 9px; height: 9px; border-radius: 50%; z-index: 1; }
+.district-board .tile-buildings { position: absolute; top: 9px; right: 0; font-size: 7px; color: var(--tile-ink); }
+.district-board .tile-buildings .hotel { background: var(--centre-ink); }
+.district-board .tile-body { padding-bottom: 22%; }
+.district-board .route-step { font-size: clamp(6px, calc(var(--board-unit) * 1.5), 11px); align-self: flex-start; color: var(--tile-price-ink); }
+.district-board .board-centre { padding: 6px; gap: 5px; flex-direction: row; flex-wrap: wrap; justify-content: center; overflow: auto; }
+.district-board .board-centre .brand { font-size: clamp(12px, calc(var(--board-unit) * 2.7), 22px); }
+.district-board .centre-card { max-width: 65%; margin: 0; padding: 5px; font-size: clamp(8px, calc(var(--board-unit) * 1.8), 13px); }
+.district-board .centre-turn { font-size: clamp(8px, calc(var(--board-unit) * 1.8), 13px); }
 .home-nav-links { display: flex; gap: 32px; font-size: 12px; font-weight: 550; }
 .home-nav-links a { text-decoration: none; color: var(--muted); }
 .home-nav-links a:hover { color: var(--text); }

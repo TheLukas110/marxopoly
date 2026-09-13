@@ -307,7 +307,7 @@ function movePlayerBy(g: GameState, player: Player, steps: number, now: number):
 
 /**
  * Easter egg: fixed dice for the player named "SonToes" while `sonToesLap` is 0
- * or 1, so his roll lands him exactly on Zuerich then Bern. Returns the two pip
+ * or 1, so his roll lands on Sunward Summit then Starling Spire. Returns the two pip
  * values (which sum to the exact distance), or null to roll for real — either
  * because the egg is spent or because the street is still more than one roll
  * (>12) or less than a legal roll (<2) away.

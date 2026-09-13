@@ -7,15 +7,13 @@ import type { Vec3 } from './math.js';
 export interface WorldTile { id: number; center: Vec3; min: Vec3; max: Vec3; color: string; yaw: number }
 export const RAINBOW = ['#e97479', '#eea45b', '#efcf65', '#73bba0', '#719dd2', '#aa89c9'];
 
-/** The same forty spaces, with theme-specific elevations and table geometry. */
+/** Equal-sized spaces around a circular district, with themed elevations. */
 export function worldTile(id: number, theme: string): WorldTile {
-  const side = Math.floor(id / 10), step = id % 10;
-  let x = side === 0 ? 9 - step * 1.8 : side === 1 ? -9 : side === 2 ? -9 + step * 1.8 : 9;
-  let z = side === 0 ? 9 : side === 1 ? 9 - step * 1.8 : side === 2 ? -9 : -9 + step * 1.8;
-  if (theme === 'poker') { const angle = Math.PI / 4 + id * Math.PI * 2 / 40; x = Math.cos(angle) * 10.5; z = Math.sin(angle) * 10.5; }
+  const step = id % 10, angle = Math.PI / 2 + id * Math.PI * 2 / BOARD.length;
+  const x = Math.cos(angle) * 10.5, z = Math.sin(angle) * 10.5;
   const y = theme === 'cyber' ? 0.22 + Math.floor(step / 3) * 0.13 : theme === 'dummy' ? 0.22 + (Math.floor(step / 2) % 2) * 0.15 : 0.22;
-  const halfWidth=theme==='poker'?0.73:0.8;
-  return { id, center: [x,y,z], min: [x-halfWidth,y-0.22,z-0.8], max: [x+halfWidth,y+0.14,z+0.8], color: tileColor(BOARD[id]) ?? worldTheme(theme).accent, yaw: theme==='poker'?Math.atan2(x,z):0 };
+  const halfWidth=0.73;
+  return { id, center: [x,y,z], min: [x-halfWidth,y-0.22,z-0.8], max: [x+halfWidth,y+0.14,z+0.8], color: tileColor(BOARD[id]) ?? worldTheme(theme).accent, yaw: Math.atan2(x,z) };
 }
 
 export function tileOffset(tile: WorldTile, x: number, y: number, z: number): Vec3 {
@@ -139,19 +137,16 @@ function blocks(g: Geometry) {
 
 export function buildWorld(theme: string) {
   const g=new Geometry(), palette=worldTheme(theme);
-  if(theme==='poker') { g.cylinder(0,-0.65,0,12.1,0.7,palette.base,80); g.cylinder(0,0.05,0,11.85,0.12,'#bd9554',80); g.cylinder(0,0.17,0,11.55,0.04,palette.ground,80); }
-  else {
-    g.box(0,-0.35,0,20.6,0.7,20.6,palette.base);
-    g.box(0,0.02,0,20.3,0.08,20.3,palette.ground);
-    for(const side of [-1,1]) { g.box(side*10.22,-0.14,0,0.06,0.1,20.4,palette.accent); g.box(0,-0.14,side*10.22,20.4,0.1,0.06,palette.accent); }
-  }
+  g.cylinder(0,-0.65,0,12.1,0.7,palette.base,80);
+  g.cylinder(0,0.05,0,11.85,0.12,palette.accent,80);
+  g.cylinder(0,0.17,0,11.55,0.04,palette.ground,80);
   const tiles=BOARD.map(tile=>worldTile(tile.id,theme));
   for(const tile of tiles) {
     const [x,y,z]=tile.center;
-    const width=theme==='poker'?1.46:1.68;
+    const width=1.46;
     g.box(x,y-0.1,z,width,0.25,1.68,palette.tile,tile.yaw);
-    const stripe=tileOffset(tile,0,0.03,-0.57);
-    g.box(...stripe,width-0.13,0.04,0.38,tile.color,tile.yaw);
+    const marker=tileOffset(tile,0,0.03,-0.57);
+    g.cylinder(...marker,0.17,0.06,tile.color,6);
     const data=BOARD[tile.id];
     if(data.kind==='street') {
       // Small architectural markers leave the property names and pieces clear.
@@ -171,7 +166,7 @@ export function buildWorld(theme: string) {
 export function buildPieces(theme: string, state?: GameState, selected: number | null = null, hovered: number | null = null, positions: Record<string,Vec3> = {}) {
   const g=new Geometry();
   for(const id of new Set([selected,hovered])) if(id!==null) {
-    const tile=worldTile(id,theme),c=id===selected?'#f6cf7e':'#edf4e3',half=theme==='poker'?0.73:0.84;
+    const tile=worldTile(id,theme),c=id===selected?'#f6cf7e':'#edf4e3',half=0.73;
     for(const sign of [-1,1]) { g.box(...tileOffset(tile,sign*half,0.09,0),0.06,0.08,1.74,c,tile.yaw); g.box(...tileOffset(tile,0,0.09,sign*0.84),half*2,0.08,0.06,c,tile.yaw); }
   }
   if(!state) return g.data();
@@ -179,9 +174,9 @@ export function buildPieces(theme: string, state?: GameState, selected: number |
     if(!deed?.ownerId) continue;
     const owner=state.players.find(p=>p.id===deed.ownerId); if(!owner) continue;
     const tile=worldTile(Number(key),theme),[x,y,z]=tile.center;
-    g.box(...tileOffset(tile,0,0.08,0.7),theme==='poker'?1.35:1.52,0.08,0.13,deed.mortgaged?'#7d8287':owner.color,tile.yaw);
-    if(deed.houses===5) { g.box(x,y+0.8,z-0.4,0.7,1.4,0.6,'#d16f68'); g.box(x,y+1.55,z-0.4,0.8,0.13,0.7,'#f2d5ab'); }
-    else for(let i=0;i<deed.houses;i++) { const hx=x-0.52+i*0.34; g.box(hx,y+0.3,z-0.45,0.27,0.4,0.3,owner.color); g.cylinder(hx,y+0.5,z-0.45,0.24,0.2,'#f3dcac',4,0); }
+    g.box(...tileOffset(tile,0,0.08,0.7),1.35,0.08,0.13,deed.mortgaged?'#7d8287':owner.color,tile.yaw);
+    if(deed.houses===5) { g.cylinder(...tileOffset(tile,0,0.14,-0.4),0.28,1.4,owner.color,6); g.cylinder(...tileOffset(tile,0,1.54,-0.4),0.34,0.13,'#f2d5ab',6); }
+    else for(let i=0;i<deed.houses;i++) g.cylinder(...tileOffset(tile,-0.48+i*0.32,0.14,-0.45),0.12,0.18+i*0.12,owner.color,6);
   }
   const active=state.players.filter(p=>!p.bankrupt);
   for(const player of active) {

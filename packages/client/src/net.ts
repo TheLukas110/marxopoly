@@ -12,7 +12,7 @@ import type {
   ServerToClientEvents,
 } from '@marxopoly/shared';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL ?? '';
+const SERVER_URL = (import.meta.env.VITE_SERVER_URL ?? '').trim().replace(/\/$/, '');
 
 /**
  * The seat token lives in sessionStorage, NOT localStorage, and this matters:
@@ -127,6 +127,7 @@ export function getState(): ClientStore {
 export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(SERVER_URL, {
   autoConnect: true,
   transports: ['websocket', 'polling'],
+  tryAllTransports: true,
 });
 
 socket.on('connect', () => {
@@ -156,7 +157,11 @@ socket.on('connect_error', () => {
 });
 
 socket.on('room:list', (rooms) => set({ rooms }));
-socket.on('server:info', ({ publicUrl, shareEnabled }) => set({ publicUrl, shareEnabled }));
+// With a separate backend, invitations must open this frontend, not a server
+// tunnel or the backend's optional static copy of the app.
+socket.on('server:info', ({ publicUrl, shareEnabled }) => set(
+  SERVER_URL ? { publicUrl: window.location.origin, shareEnabled: false } : { publicUrl, shareEnabled },
+));
 
 socket.on('room:joined', ({ roomId, playerId, token, spectator }) => {
   clearInvitation();

@@ -31,7 +31,7 @@ export default function Board({ state, selected, onSelect }: Props) {
   return (
     <BoardViewport map={map}>
       <div
-        className="board"
+        className="board district-board"
         style={{
           ...map.vars,
           gridTemplateColumns: layout.gridTemplateColumns,
@@ -57,7 +57,7 @@ export default function Board({ state, selected, onSelect }: Props) {
           style={{ gridColumn: layout.centre.column, gridRow: layout.centre.row }}
         >
           {!card && <div className="brand">
-            Marxopoly<span className="dot" />
+            Common Ground<span className="dot" />
           </div>}
           <Dice dice={state.dice} />
           {current && (
