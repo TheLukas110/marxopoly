@@ -1,148 +1,53 @@
-import { useState } from 'react';
+﻿import { lazy, Suspense, useState } from 'react';
 import { createRoom, dismissInvitation, joinRoom, refreshRooms, setPlayerName, useStore } from '../net.js';
+import { useMapId } from '../maps/index.js';
+import { worldTheme } from '../world/themes.js';
+import WorldGallery from './WorldGallery.js';
+
+const WorldBoard = lazy(() => import('./WorldBoard.js'));
 
 export default function Home() {
-  const playerName = useStore((s) => s.playerName);
-  const rooms = useStore((s) => s.rooms);
-  const joining = useStore((s) => s.joining);
-  const connected = useStore((s) => s.connected);
-  const invitedRoomId = useStore((s) => s.invitedRoomId);
-  const error = useStore((s) => s.error);
-  const [code, setCode] = useState('');
-  const [roomName, setRoomName] = useState('');
-  const [isPrivate, setPrivate] = useState(false);
+  const playerName = useStore(s => s.playerName), rooms = useStore(s => s.rooms), joining = useStore(s => s.joining), connected = useStore(s => s.connected);
+  const invitedRoomId = useStore(s => s.invitedRoomId), error = useStore(s => s.error);
+  const [code, setCode] = useState(''), [roomName, setRoomName] = useState(''), [isPrivate, setPrivate] = useState(false);
+  const mapId = useMapId(), world = worldTheme(mapId), nameOk = playerName.trim().length > 0;
+  const canJoin = nameOk && connected && !joining;
 
-  const nameOk = playerName.trim().length > 0;
+  if (invitedRoomId) return <div className="home invitation-home">
+    <header className="home-head"><span className="eyebrow">THERE'S A SEAT FOR YOU</span><h1>You're invited to Marxopoly</h1><p>Choose your name to join table <strong className="code-chip">{invitedRoomId}</strong>.</p></header>
+    <form className="card" onSubmit={e => { e.preventDefault(); if (canJoin) joinRoom(invitedRoomId); }}>
+      <label className="field" htmlFor="invite-name">Your name</label><input id="invite-name" className="input" value={playerName} maxLength={24} placeholder="e.g. Sandy" autoFocus autoComplete="nickname" required onChange={e => setPlayerName(e.target.value)} />
+      {error && <p role="alert">{error}</p>}<p className="muted">If the game has already started, you can join as a spectator.</p>
+      <div className="row"><button className="btn primary" disabled={!canJoin}>{joining ? 'Joining…' : 'Join table'}</button><button className="btn ghost" type="button" disabled={joining} onClick={dismissInvitation}>Back to home</button></div>
+    </form>
+  </div>;
 
-  if (invitedRoomId) {
-    return (
-      <div className="home invitation-home">
-        <header className="home-head">
-          <h1>You're invited to Marxopoly</h1>
-          <p>Choose your name to join table <strong className="code-chip">{invitedRoomId}</strong>.</p>
-        </header>
-        <form className="card" onSubmit={(event) => {
-          event.preventDefault();
-          if (nameOk && connected && !joining) joinRoom(invitedRoomId);
-        }}>
-          <label className="field" htmlFor="invite-name">Your name</label>
-          <input id="invite-name" className="input" value={playerName} maxLength={24}
-            placeholder="e.g. Sandy" autoFocus autoComplete="nickname" required
-            onChange={(event) => setPlayerName(event.target.value)} />
-          {error && <p role="alert">{error}</p>}
-          <p className="muted">If the game has already started, you can join as a spectator.</p>
-          <div className="row">
-            <button className="btn primary" disabled={!nameOk || !connected || joining}>
-              {joining ? 'Joining…' : 'Join table'}
-            </button>
-            <button className="btn ghost" type="button" disabled={joining} onClick={dismissInvitation}>
-              Back to home
-            </button>
-          </div>
-        </form>
-      </div>
-    );
-  }
-
-  return (
-    <div className="home">
-      <header className="home-head">
-        <h1>
-          Marxopoly<span className="dot" />
-        </h1>
-        <p>Buy the block, build it up, and bankrupt your friends. Two to eight players, live in the browser.</p>
-      </header>
-
-      <div className="home-grid">
-        <section className="card">
-          <h2>Your name</h2>
-          <input
-            className="input"
-            value={playerName}
-            maxLength={24}
-            placeholder="e.g. Sandy"
-            onChange={(e) => setPlayerName(e.target.value)}
-          />
-
-          <h2>Start a table</h2>
-          <input
-            className="input"
-            value={roomName}
-            maxLength={30}
-            placeholder="Table name (optional)"
-            onChange={(e) => setRoomName(e.target.value)}
-          />
-          <label className="check">
-            <input type="checkbox" checked={isPrivate} onChange={(e) => setPrivate(e.target.checked)} />
-            <span>Private — only people with the code can find it</span>
-          </label>
-          <button
-            className="btn primary"
-            disabled={!nameOk || joining}
-            onClick={() => createRoom(roomName, isPrivate)}
-          >
-            Create table
-          </button>
-        </section>
-
-        <section className="card">
-          <h2>Join with a code</h2>
-          <div className="row">
-            <input
-              className="input code"
-              value={code}
-              maxLength={6}
-              placeholder="ABC123"
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-            />
-            <button className="btn" disabled={!nameOk || code.length < 6 || joining} onClick={() => joinRoom(code)}>
-              Join
-            </button>
-          </div>
-
-          <div className="rooms-head">
-            <h2>Open tables</h2>
-            <button className="btn ghost small" onClick={refreshRooms}>
-              Refresh
-            </button>
-          </div>
-          <div className="hint">
-            Testing on your own? Open a <strong>second browser tab</strong> and join with the code —
-            each tab is its own player. Refreshing a tab keeps your seat.
-          </div>
-
-          <div className="room-list">
-            {rooms.length === 0 && <p className="muted">No public tables right now — start one.</p>}
-            {rooms.map((room) => {
-              const lobby = room.phase === 'lobby';
-              const full = room.playerCount >= room.maxPlayers;
-              return (
-                <button
-                  key={room.id}
-                  className="room-row"
-                  disabled={!nameOk || (lobby && full)}
-                  onClick={() => joinRoom(room.id)}
-                >
-                  <span className="room-name">{room.name}</span>
-                  <span className="room-meta">
-                    {room.playerCount}/{room.maxPlayers} ·{' '}
-                    {lobby ? (full ? 'full' : 'open') : 'in play — watch'}
-                    {room.spectatorCount > 0 && ` · ${room.spectatorCount} watching`}
-                  </span>
-                  <span className="room-code">{room.id}</span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      </div>
-
-      <footer className="home-foot">
-        <p className="muted">
-          Marxopoly is an original game. It is not affiliated with, endorsed by, or derived from any commercial
-          board game or its publisher.
-        </p>
-      </footer>
-    </div>
-  );
+  return <div className="home home-redesign">
+    <nav className="home-nav" aria-label="Main navigation"><a className="wordmark" href="#"><span className="brand-symbol" aria-hidden="true">m</span>marxopoly<span className="wordmark-period">.</span></a><div className="home-nav-links"><a href="#worlds">The worlds</a><a href="#how-to-play">How to play</a><a href="#tables">Find a table <span aria-hidden="true">↗</span></a></div><span className="connection-status"><i className={connected ? 'online' : ''} />{connected ? 'Ready to play' : 'Connecting'}</span></nav>
+    <main>
+      <section className="home-hero" aria-labelledby="hero-title">
+        <div className="hero-copy"><span className="eyebrow"><span className="tiny-star">✳</span> YOUR NEXT GAME NIGHT, REIMAGINED</span><h1 id="hero-title">Big moves.<br /><span>Small world.</span></h1><p>Build your little empire. Make a questionable deal. Turn your favourite people into your fiercest rivals.</p><div className="hero-actions"><a className="btn primary big" href="#tables">Let's play <span aria-hidden="true">↗</span></a><a className="text-link" href="#worlds">Find your world <span aria-hidden="true">↓</span></a></div><div className="hero-facts"><span><strong>2–8</strong> players</span><span><strong>5</strong> distinct worlds</span><span><strong>Zero</strong> downloads</span></div></div>
+        <div className="hero-world"><Suspense fallback={<div className="world-loading">Building your world…</div>}><WorldBoard theme={mapId} preview /></Suspense><div className="hero-world-caption"><div><span className="eyebrow">ON THE TABLE</span><strong>{world.name}</strong></div><span>Go on, give it a spin <span aria-hidden="true">↶</span></span></div></div>
+      </section>
+      <section className="worlds-section" id="worlds" aria-labelledby="worlds-title"><div className="section-heading"><div><span className="eyebrow">A DIFFERENT KIND OF ESCAPE</span><h2 id="worlds-title">Same rivals. A whole new world.</h2></div><p>Pick a place that feels like you.<br />Your world, your view, at every table.</p></div><WorldGallery /><p className="world-description"><span style={{ background: world.accent }} />{world.description}</p></section>
+      <section className="tables-section" id="tables" aria-labelledby="tables-title"><div className="section-heading"><div><span className="eyebrow">GOOD COMPANY. GREAT COMPETITION.</span><h2 id="tables-title">Pull up a chair.</h2></div><p>Bring your friends, or add a bot.<br />The first move is yours.</p></div>
+        <div className="home-grid">
+          <form className="card create-table-card" onSubmit={e => { e.preventDefault(); if (canJoin) createRoom(roomName, isPrivate); }}><div className="form-title"><span className="form-icon" aria-hidden="true">＋</span><div><h3>Start something.</h3><p>Your table. Your house rules.</p></div></div>
+            <label className="field-label" htmlFor="player-name">Your name</label><input id="player-name" className="input" value={playerName} maxLength={24} placeholder="What should we call you?" autoComplete="nickname" required onChange={e => setPlayerName(e.target.value)} />
+            <label className="field-label" htmlFor="room-name">Table name <span>optional</span></label><input id="room-name" className="input" value={roomName} maxLength={30} placeholder="The usual suspects" onChange={e => setRoomName(e.target.value)} />
+            <label className="check private-check"><input type="checkbox" checked={isPrivate} onChange={e => setPrivate(e.target.checked)} /><span>Make it private<em>Only friends with your invite can find the table.</em></span></label>
+            <button className="btn primary full" disabled={!canJoin}>{joining ? 'Taking your seat…' : 'Create a table'} <span aria-hidden="true">↗</span></button><p className="form-footnote">No account. Just a name and a little ambition.</p>
+          </form>
+          <section className="card join-table-card" aria-labelledby="join-title"><div className="form-title"><span className="form-icon" aria-hidden="true">↗</span><div><h3 id="join-title">Already invited?</h3><p>Good. They saved you a seat.</p></div></div>
+            <form className="join-code-form" onSubmit={e => { e.preventDefault(); if (canJoin && code.length === 6) joinRoom(code); }}><label className="field-label" htmlFor="room-code">Your six-character table code</label><div className="join-code-row"><input id="room-code" className="input code" value={code} maxLength={6} placeholder="ABC123" autoComplete="off" spellCheck={false} onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} /><button className="btn" disabled={!canJoin || code.length !== 6}>Join table</button></div></form>
+            {!nameOk && <p className="name-reminder">Add your name to join or create a table.</p>}
+            <div className="rooms-head"><h3><span className="live-dot" /> Open tables <span className="count-badge">{rooms.length}</span></h3><button type="button" className="btn ghost small" disabled={!connected} onClick={refreshRooms}>↻ Refresh</button></div>
+            <div className="room-list">{rooms.length === 0 && <div className="empty-tables"><span aria-hidden="true">▧</span><strong>A quiet moment before the rivalry.</strong><p>Start a table and get the evening going.</p></div>}{rooms.map(room => { const lobby = room.phase === 'lobby', full = room.playerCount >= room.maxPlayers; return <button type="button" key={room.id} className="room-row" disabled={!canJoin || (lobby && full)} onClick={() => joinRoom(room.id)}><span className="room-name">{room.name}</span><span className="room-meta">{room.playerCount}/{room.maxPlayers} · {lobby ? (full ? 'full' : 'open') : 'watch game'}{room.spectatorCount > 0 ? ` · ${room.spectatorCount} watching` : ''}</span><span className="room-code">{room.id}</span></button>; })}</div>
+          </section>
+        </div>
+      </section>
+      <section className="how-section" id="how-to-play" aria-labelledby="how-title"><div><span className="eyebrow">SIMPLE TO START. HARD TO WALK AWAY.</span><h2 id="how-title">A little luck.<br />A lot of nerve.</h2></div><ol className="how-steps"><li><span>01</span><div><h3>Bring your people.</h3><p>Create a table, share the invite, and make the house rules your own. Bots are always up for a game.</p></div></li><li><span>02</span><div><h3>Make your move.</h3><p>Roll, buy streets, collect sets. Build houses and hotels to turn a small foothold into a growing empire.</p></div></li><li><span>03</span><div><h3>Own the evening.</h3><p>Trade, bid, and collect rent. Keep your cash flowing and be the last player standing.</p></div></li></ol></section>
+    </main>
+    <footer className="home-foot"><a className="wordmark" href="#">marxopoly<span className="wordmark-period">.</span></a><p>A small world for big game nights.</p><span>Made for the table. Played in your browser.</span></footer>
+  </div>;
 }

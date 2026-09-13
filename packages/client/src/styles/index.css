@@ -136,6 +136,9 @@ p { margin: 0 0 10px; }
 .btn.small { padding: 6px 12px; font-size: 13px; border-width: 1px; }
 .btn.full { width: 100%; }
 .btn.big { padding: 14px 26px; font-size: 17px; border-radius: 13px; }
+button:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+  outline: 3px solid var(--blue); outline-offset: 3px;
+}
 
 .input {
   width: 100%;
@@ -158,10 +161,12 @@ p { margin: 0 0 10px; }
 .field > span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 5px; font-weight: 600; }
 
 /* ----------------------------------------------------------- map picker */
-.map-picker { display: flex; align-items: center; gap: 8px; }
+.board-preferences { display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; }
+.board-view-toggle { flex: none; white-space: nowrap; }
+.map-picker { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .map-picker > span { font-size: 13px; color: var(--muted); font-weight: 600; }
 .map-picker .input {
-  width: auto; margin: 0; padding: 8px 10px; font-weight: 700;
+  width: auto; min-width: 0; max-width: 180px; margin: 0; padding: 8px 10px; font-weight: 700;
 }
 .map-picker.compact .input { padding: 6px 9px; font-size: 13px; }
 
@@ -216,7 +221,7 @@ p { margin: 0 0 10px; }
 
 /* --------------------------------------------------------- theme toggle */
 .theme-toggle {
-  position: fixed; right: 16px; bottom: 16px; z-index: 90;
+  position: fixed; right: 16px; top: 12px; z-index: 40;
   width: 44px; height: 44px; border-radius: 50%;
   border: 2px solid var(--line-strong); background: var(--surface); color: var(--text);
   font-size: 20px; line-height: 1; cursor: pointer; box-shadow: var(--shadow);
@@ -251,7 +256,7 @@ p { margin: 0 0 10px; }
 
 /* ================================================================= lobby */
 .lobby { max-width: 1040px; margin: 0 auto; padding: 44px 20px; }
-.lobby-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+.lobby-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 24px; padding-right: 48px; flex-wrap: wrap; }
 .lobby-grid { display: grid; grid-template-columns: 1fr 1.15fr; gap: 20px; align-items: start; }
 .invite-link { grid-column: 1 / -1; min-width: 0; }
 .invite-link .row { flex-wrap: wrap; }
@@ -266,22 +271,22 @@ p { margin: 0 0 10px; }
 .settings.numbers { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; margin-top: 16px; }
 
 /* ================================================================== game */
-.game { height: 100vh; display: flex; flex-direction: column; }
+.game { height: 100vh; height: 100dvh; min-height: 660px; display: flex; flex-direction: column; }
 .game-head {
-  display: flex; align-items: center; gap: 14px;
-  padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--surface);
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; flex: none;
+  padding: 12px 74px 12px 20px; border-bottom: 1px solid var(--line); background: var(--surface);
 }
-.game-head .btn { margin-left: auto; }
+.game-head > .board-preferences { margin-right: auto; }
 .game-main {
   flex: 1; min-height: 0;
   display: grid; grid-template-columns: 250px minmax(0, 1fr) 290px; gap: 14px; padding: 14px;
 }
-.col { min-height: 0; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+.col { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
 .col.centre {
-  overflow: hidden; display: grid; gap: 14px;
-  grid-template-rows: minmax(0, 1fr) clamp(170px, 24vh, 220px);
+  overflow: visible; display: grid; gap: 14px;
+  grid-template-rows: minmax(0, 1fr) auto;
 }
-.col.centre > .actionbar { min-height: 0; overflow-y: auto; align-content: flex-start; }
+.col.centre > .actionbar { min-height: 0; max-height: 220px; overflow-y: auto; align-content: flex-start; }
 
 .panel {
   background: var(--surface); border: 1px solid var(--line);
@@ -289,26 +294,59 @@ p { margin: 0 0 10px; }
 }
 
 /* ================================================================= board */
-/* A size container, so the board can be sized from the space actually left
-   over next to the action bar instead of guessing at the viewport height. */
-.board-wrap { flex: 1; min-height: 0; display: grid; place-items: center; container-type: size; }
+/* Controls occupy their own row; the scene gets the remaining space. Keep
+   perspective on the camera, with every skin and piece in that same scene. */
+.board-view { min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); }
+.board-view.is-3d { grid-template-rows: auto minmax(0, 1fr); gap: 8px; }
+.board-controls { display: flex; align-items: center; justify-content: center; gap: 8px 14px; flex-wrap: wrap; }
+.board-rotation-buttons { display: flex; gap: 6px; }
+.board-controls .btn { min-height: 36px; min-width: 36px; }
+.board-tilt { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 650; }
+.board-tilt input { width: 90px; min-height: 32px; accent-color: var(--accent); }
+.board-view-hint { flex-basis: 100%; text-align: center; color: var(--muted); font-size: 12px; }
+.board-wrap { position: relative; min-width: 0; min-height: 0; container-type: size; }
+.board-interaction { position: absolute; inset: 0; display: grid; place-items: center; border-radius: var(--radius); }
+.board-camera {
+  --board-unit: calc((min(100cqw, 100cqh) - 2 * var(--board-ring, 0px) - 24px) / 100);
+  position: relative;
+  width: calc(min(100cqw, 100cqh) - 2 * var(--board-ring, 0px) - 24px);
+  aspect-ratio: 1;
+}
+.is-3d .board-interaction { cursor: grab; touch-action: none; user-select: none; }
+.is-3d .board-wrap.dragging .board-interaction, .is-3d .dragging .tile { cursor: grabbing; }
+.is-3d .board-camera, .is-3d .board, .board-depth { transform-style: preserve-3d; }
+.board-depth { position: absolute; inset: 0; pointer-events: none; }
+.board-base { position: absolute; inset: 0; transform: translateZ(-14px); border-radius: var(--board-radius); background: var(--board-frame); }
+.board-side { position: absolute; background: var(--board-frame); filter: brightness(0.65); }
+.board-side.north, .board-side.south { width: 100%; height: 14px; transform-origin: top; transform: rotateX(-90deg); }
+.board-side.north { top: 0; }
+.board-side.south { top: 100%; }
+.board-side.east, .board-side.west { width: 14px; height: 100%; transform-origin: left; transform: rotateY(90deg); }
+.board-side.east { left: 100%; }
+.board-side.west { left: 0; }
+.is-3d .tile { transform: translateZ(2px); box-shadow: 0 2px 0 var(--board-frame); }
+.is-3d .tile.selected { transform: translateZ(5px); box-shadow: 0 0 0 3px var(--blue); }
+.is-3d .token-layer { transform: translateZ(16px); }
+.is-3d .board-token { box-shadow: 0 4px 0 rgba(0, 0, 0, 0.4), 0 8px 8px rgba(0, 0, 0, 0.3); }
+.is-3d .board-token.active { box-shadow: 0 0 0 3px var(--accent), 0 4px 0 rgba(0, 0, 0, 0.4), 0 8px 8px rgba(0, 0, 0, 0.3); }
+.is-3d .map-pride .board::before { transform: translateZ(-1px); }
+.is-3d .map-pride .board-depth { --board-frame: #a98cc8; }
 .board {
   position: relative;
-  /* Square, as large as fits — less the ring some maps paint outside their
-     border box (`--board-ring`: the cyber bezel, the poker rail, …). */
-  width: calc(min(100cqw, 100cqh) - 2 * var(--board-ring, 0px));
+  width: 100%;
   aspect-ratio: 1 / 1;
   min-width: 0; min-height: 0;
   display: grid;
   grid-template-columns: 1.5fr repeat(9, 1fr) 1.5fr;
   grid-template-rows: 1.5fr repeat(9, 1fr) 1.5fr;
-  gap: var(--board-gap, 3px); padding: var(--board-pad, 10px);
+  gap: min(var(--board-gap, 3px), calc(var(--board-unit) * 0.5));
+  padding: min(var(--board-pad, 10px), calc(var(--board-unit) * 1.6));
   background: var(--board-face); border: 3px solid var(--board-frame);
   border-radius: var(--board-radius, 18px); box-shadow: var(--shadow);
 }
 
 .tile {
-  position: relative; overflow: hidden;
+  position: relative; overflow: hidden; min-width: 0; min-height: 0;
   background: var(--tile-bg, var(--board-face));
   border: var(--tile-border, 1.5px solid var(--line-strong));
   border-radius: var(--tile-radius, 7px);
@@ -333,27 +371,47 @@ p { margin: 0 0 10px; }
 .tile-body {
   flex: 1 1 auto; min-width: 0; min-height: 0; overflow: hidden;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 1px; padding: 3px 3px 4px;
+  gap: 1px; padding: clamp(1px, calc(var(--board-unit) * 0.4), 3px);
 }
 .tile-name {
-  font-size: clamp(6.5px, 0.74vw, 11.5px); line-height: 1.1; font-weight: 700;
-  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
-  overflow-wrap: break-word; hyphens: auto; max-width: 100%;
+  font-size: clamp(5px, calc(var(--board-unit) * 1.65), 11.5px); line-height: 1.1; font-weight: 700;
+  flex: 1 1 0; min-height: 0; width: 100%; overflow: auto; scrollbar-width: none;
+  display: flex; flex-direction: column; justify-content: safe center;
+  overflow-wrap: anywhere; hyphens: auto; max-width: 100%;
 }
-.tile-price { font-size: clamp(7px, 0.62vw, 11px); color: var(--tile-price-ink); font-weight: 700; white-space: nowrap; }
-.tile-glyph { font-size: clamp(13px, 1.35vw, 24px); line-height: 1; }
+.tile-name > span { display: block; flex: none; width: 100%; }
+.tile-price, .tile-glyph, .tile-mortgage { flex: none; }
+.tile-price { font-size: clamp(5px, calc(var(--board-unit) * 1.5), 11px); color: var(--tile-price-ink); font-weight: 700; white-space: nowrap; }
+.tile-glyph { font-size: clamp(8px, calc(var(--board-unit) * 3.2), 24px); line-height: 1; }
 .tile.special.edge-left .tile-glyph,
-.tile.special.edge-right .tile-glyph { font-size: clamp(10px, 0.95vw, 16px); }
-.tile.corner .tile-name { font-size: clamp(9px, 0.9vw, 15px); font-weight: 850; letter-spacing: 0.02em; -webkit-line-clamp: 2; }
-.tile.corner .tile-glyph { font-size: clamp(20px, 2.2vw, 40px); }
-.tile.corner .tile-body { gap: 4px; padding-bottom: clamp(8px, 1vw, 16px); }
+.tile.special.edge-right .tile-glyph { font-size: clamp(7px, calc(var(--board-unit) * 2.4), 16px); }
+.tile.corner .tile-name { font-size: clamp(6px, calc(var(--board-unit) * 2), 15px); font-weight: 850; letter-spacing: 0.02em; -webkit-line-clamp: 2; }
+.tile.corner .tile-glyph { font-size: clamp(12px, calc(var(--board-unit) * 5), 40px); }
+.tile.corner .tile-body { gap: 2px; padding-bottom: clamp(2px, calc(var(--board-unit) * 1.2), 10px); }
+
+/* On compact boards the name gets the space. Prices remain in tile details. */
+@container (max-width: 520px) or (max-height: 520px) {
+  .tile .tile-head { flex-basis: 10%; }
+  .tile .tile-body { padding: 1px; gap: 0; }
+  .tile.ownable .tile-price, .tile .tile-glyph, .tile .tile-mortgage { display: none; }
+}
+
+/* A forty-space board needs a minimum reading area. Small viewports can pan
+   the board instead of forcing long names into only a few pixels. */
+@container (max-width: 520px) or (max-height: 520px) {
+  .board-view:not(.is-3d) .board-interaction { display: block; overflow: auto; padding: 12px; }
+  .board-view:not(.is-3d) .board-camera {
+    width: 440px; --board-unit: 4.4px;
+    margin: var(--board-ring, 0px);
+  }
+}
 
 .tile-buildings {
-  color: #fff; font-size: clamp(7px, 0.68vw, 11px); font-weight: 800; letter-spacing: 1px;
+  color: #fff; font-size: clamp(5px, calc(var(--board-unit) * 1.5), 11px); font-weight: 800; letter-spacing: 0.5px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 .tile-buildings .hotel { background: #b91c1c; padding: 1px 4px; border-radius: 4px; letter-spacing: 0.5px; }
-.tile-mortgage { font-size: clamp(6px, 0.55vw, 9px); font-weight: 800; color: var(--danger); letter-spacing: 0.5px; }
+.tile-mortgage { font-size: clamp(4px, calc(var(--board-unit) * 1.2), 9px); font-weight: 800; color: var(--danger); }
 
 .tile-owner-bar { position: absolute; z-index: 2; }
 .tile.edge-bottom .tile-owner-bar { bottom: 0; left: 0; right: 0; height: 6px; }
@@ -501,14 +559,18 @@ p { margin: 0 0 10px; }
 .board-wrap.map-pride .die:last-child .pip { fill: #6a9ad0; }
 
 /* -------------------------------------------------- animated token layer */
-.token-layer { position: absolute; inset: var(--board-pad, 10px); z-index: 5; pointer-events: none; }
+.token-layer {
+  --token-step: clamp(6px, calc(var(--board-unit) * 3.2), 22px);
+  position: absolute; inset: min(var(--board-pad, 10px), calc(var(--board-unit) * 1.6));
+  z-index: 5; pointer-events: none;
+}
 .board-token {
   position: absolute;
-  width: clamp(17px, 1.8vw, 27px); height: clamp(17px, 1.8vw, 27px);
+  width: clamp(10px, calc(var(--board-unit) * 3.8), 27px); height: clamp(10px, calc(var(--board-unit) * 3.8), 27px);
   transform: translate(-50%, -50%);
   display: grid; place-items: center;
   border-radius: 50%; border: 2px solid #fff;
-  font-size: clamp(10px, 1.05vw, 15px); line-height: 1;
+  font-size: clamp(6px, calc(var(--board-unit) * 2.1), 15px); line-height: 1;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
   transition: left 0.09s linear, top 0.09s linear;
   will-change: left, top;
@@ -526,18 +588,19 @@ p { margin: 0 0 10px; }
 
 .board-centre {
   grid-column: 2 / 11; grid-row: 2 / 11;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  display: flex; flex-direction: column; align-items: center; justify-content: safe center; gap: clamp(5px, calc(var(--board-unit) * 2), 16px);
   background: var(--centre-bg);
-  border-radius: 14px; padding: 20px; text-align: center; margin: 3px;
+  border-radius: 14px; padding: clamp(6px, calc(var(--board-unit) * 2.6), 20px); text-align: center; margin: 3px;
   color: var(--centre-ink); min-width: 0; min-height: 0; overflow: auto;
 }
 .board-centre > * { flex-shrink: 0; }
 .board-centre.has-card { gap: 10px; padding: 12px; justify-content: safe center; }
 .board-centre.has-card .centre-card { margin-block: auto; }
-.board-centre .brand { color: var(--centre-ink); }
+.board-centre .brand { color: var(--centre-ink); font-size: clamp(16px, calc(var(--board-unit) * 4), 30px); }
 .centre-turn {
-  display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 18px;
-  background: #fff; border: 2px solid #d9e2f0; border-radius: 999px; padding: 7px 18px;
+  display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: clamp(10px, calc(var(--board-unit) * 2.5), 18px);
+  max-width: 100%; overflow-wrap: anywhere;
+  background: #fff; border: 2px solid #d9e2f0; border-radius: 999px; padding: 5px 10px;
   box-shadow: 0 1px 2px rgba(16, 32, 60, 0.08); color: var(--centre-ink);
 }
 .centre-pot { color: #b45309; font-weight: 800; }
@@ -555,6 +618,7 @@ p { margin: 0 0 10px; }
 .dice { display: flex; gap: 14px; }
 .dice.empty { color: var(--centre-muted); font-size: 28px; }
 .die { width: 54px; height: 54px; filter: drop-shadow(0 3px 6px rgba(16, 32, 60, 0.22)); }
+.board-centre .die { width: clamp(25px, calc(var(--board-unit) * 8), 54px); height: auto; }
 .die rect { fill: #fff; stroke: #cbd5e1; stroke-width: 3; }
 .die .pip { fill: #1e293b; }
 .die.rolling { animation: die-tumble 0.3s linear infinite; transform-origin: 50% 50%; }
@@ -576,7 +640,7 @@ p { margin: 0 0 10px; }
 .player-card.active { border-color: var(--accent); border-left-color: var(--pc); background: var(--accent-soft); }
 .player-card.out { opacity: 0.5; }
 .player-top { display: flex; align-items: center; gap: 9px; }
-.player-name { flex: 1; font-weight: 750; font-size: 15px; }
+.player-name { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 750; font-size: 15px; }
 .player-cash { font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 850; font-size: 16px; }
 .player-meta { display: flex; gap: 10px; font-size: 12px; color: var(--muted); margin-top: 6px; flex-wrap: wrap; font-weight: 600; }
 .deed-strip { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 8px; }
@@ -601,65 +665,29 @@ p { margin: 0 0 10px; }
 .deed-item.mine { border-color: var(--accent); background: var(--accent-soft); }
 .deed-item.mtg { opacity: 0.55; }
 .deed-item-band { width: 5px; align-self: stretch; border-radius: 3px; flex: none; }
-.deed-item-name { flex: 1; display: flex; align-items: center; gap: 7px; font-weight: 650; }
+.deed-item-name { flex: 1; min-width: 0; overflow-wrap: anywhere; display: flex; align-items: center; gap: 7px; font-weight: 650; }
 .deed-item-houses { font-size: 11px; color: var(--accent); font-weight: 750; }
 .deed-item-flag { font-size: 10px; font-weight: 800; letter-spacing: 0.5px; color: var(--warn); }
 .deed-item-owner { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .deed-item-owner .accent { color: var(--accent-ink); font-weight: 750; }
 
 /* ============================================================ action bar */
-/* The bar is drawn as two masked layers — an outline and a fill 2px inside it
-   — so a notch can be cut out of its top edge and still come out bordered.
-   `--notch-w` (half the cut's width) is measured from the board in GameRoom;
-   at 0 the mask is a no-op and the bar is an ordinary rounded box. */
+/* A separate, naturally sized panel stays clear of the board at any angle. */
 .actionbar {
-  --notch-d: 18px;
-  position: relative;
-  margin-top: calc(-1 * var(--notch-d));
-  padding: calc(12px + var(--notch-d)) 18px 12px;
-  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 12px 16px;
+  border: 2px solid var(--line); border-radius: var(--radius); background: var(--surface);
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
 }
-.actionbar > * { position: relative; z-index: 1; }
-.actionbar::before, .actionbar::after {
-  content: ''; position: absolute; z-index: 0; pointer-events: none;
-  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
-  -webkit-mask-position: 0 0, 0 100%; mask-position: 0 0, 0 100%;
-  -webkit-mask-size: 100% var(--notch-d), 100% calc(100% - var(--notch-d));
-  mask-size: 100% var(--notch-d), 100% calc(100% - var(--notch-d));
-}
-.actionbar::before {
-  inset: 0; border-radius: var(--radius); background: var(--line);
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.28));
-  -webkit-mask-image:
-    linear-gradient(to right, #000 calc(50% - var(--notch-w, 0px)),
-      transparent calc(50% - var(--notch-w, 0px)) calc(50% + var(--notch-w, 0px)), #000 calc(50% + var(--notch-w, 0px))),
-    linear-gradient(#000 0 0);
-  mask-image:
-    linear-gradient(to right, #000 calc(50% - var(--notch-w, 0px)),
-      transparent calc(50% - var(--notch-w, 0px)) calc(50% + var(--notch-w, 0px)), #000 calc(50% + var(--notch-w, 0px))),
-    linear-gradient(#000 0 0);
-}
-.actionbar::after {
-  inset: 2px; border-radius: calc(var(--radius) - 2px); background: var(--surface);
-  -webkit-mask-image:
-    linear-gradient(to right, #000 calc(50% - var(--notch-w, 0px) - 2px),
-      transparent calc(50% - var(--notch-w, 0px) - 2px) calc(50% + var(--notch-w, 0px) + 2px), #000 calc(50% + var(--notch-w, 0px) + 2px)),
-    linear-gradient(#000 0 0);
-  mask-image:
-    linear-gradient(to right, #000 calc(50% - var(--notch-w, 0px) - 2px),
-      transparent calc(50% - var(--notch-w, 0px) - 2px) calc(50% + var(--notch-w, 0px) + 2px), #000 calc(50% + var(--notch-w, 0px) + 2px)),
-    linear-gradient(#000 0 0);
-}
-.actionbar.mine::before { background: var(--accent); }
-.actionbar.mine::after { background: var(--accent-soft); }
-.actionbar-status { display: flex; align-items: center; gap: 12px; }
+.actionbar.mine { border-color: var(--accent); background: var(--accent-soft); }
+.actionbar-status { display: flex; align-items: center; gap: 12px; min-width: 0; overflow-wrap: anywhere; }
 .status-text { font-weight: 800; font-size: 17px; }
 .timer {
   font-variant-numeric: tabular-nums; background: var(--surface); border: 2px solid var(--line);
   padding: 3px 11px; border-radius: 999px; font-size: 14px; color: var(--muted); font-weight: 800;
 }
 .timer.urgent { color: #fff; background: var(--danger); border-color: var(--danger); }
-.actionbar-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-left: auto; align-items: center; }
+.actionbar-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-left: auto; align-items: center; min-width: 0; max-width: 100%; }
+.actionbar-buttons .btn { max-width: 100%; overflow-wrap: anywhere; }
 .debt-note { color: var(--warn); font-size: 13px; max-width: 320px; font-weight: 600; }
 
 /* ============================================================== log/chat */
@@ -679,7 +707,8 @@ p { margin: 0 0 10px; }
 .log-line.trade { color: var(--ink-trade); font-weight: 600; }
 .log-line.build { color: var(--ink-build); font-weight: 600; }
 .chat-form { display: flex; gap: 8px; margin-top: 10px; }
-.chat-form .input { margin: 0; }
+.chat-form .input { margin: 0; min-width: 0; }
+.log-line, .chat-line { overflow-wrap: anywhere; }
 
 /* ================================================================ detail */
 .detail { padding: 0; overflow: hidden; }
@@ -859,19 +888,42 @@ code {
 @media (max-width: 1240px) {
   .game-main { grid-template-columns: 218px minmax(0, 1fr) 258px; }
 }
-@media (max-width: 1000px) {
+@media (max-width: 1150px) {
   .home-grid, .lobby-grid, .trade-grid, .trade-offer-body { grid-template-columns: 1fr; }
-  .game { height: auto; }
-  .game-main { grid-template-columns: 1fr; }
+  .game { height: auto; min-height: 100dvh; }
+  .game-main { grid-template-columns: minmax(0, 1fr); }
+  .col.centre { order: -1; }
   .col { overflow: visible; }
-  .col.centre { display: flex; overflow: visible; }
-  /* Stacked layout: the column has no fixed height, so size the board from the
-     viewport again and drop the notch. */
-  .board-wrap { container-type: inline-size; flex: none; }
-  .board { width: calc(min(100cqw, 660px) - 2 * var(--board-ring, 0px)); }
-  .actionbar { --notch-w: 0px; --notch-d: 0px; padding-top: 12px; margin-top: 0; }
+  .col.centre { display: flex; }
+  .board-view { flex: none; grid-template-rows: auto; }
+  .board-view.is-3d { grid-template-rows: auto auto; }
+  .board-wrap { width: min(100%, 760px); aspect-ratio: 1; justify-self: center; }
+  .col.centre > .actionbar { max-height: none; }
+  .players { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+  .log { height: 360px; flex: none; }
 }
 @media (max-width: 560px) {
+  .game-main { padding: 8px; gap: 10px; }
+  .game-head { gap: 8px; padding: 10px 58px 10px 12px; }
+  .game-head .brand { font-size: 16px; }
+  .game-head > .board-preferences { flex-basis: 100%; }
+  .lobby-head .row { min-width: 0; }
+  .lobby, .home { padding: 30px 12px; }
+  .seat-name, .room-name, .standing-name, .stat-name { min-width: 0; overflow-wrap: anywhere; }
+  .room-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .room-row .room-meta { grid-column: 1; }
+  .room-row .room-code { grid-column: 2; grid-row: 1 / 3; }
+  .board-controls { gap: 4px 10px; }
+  .board-centre.has-card { padding: 6px; gap: 5px; }
+  .centre-card { padding: 8px; font-size: 12px; }
+  .actionbar { padding: 12px; }
+  .actionbar-buttons { margin-left: 0; width: 100%; }
+  .actionbar-buttons .btn { flex: 1 1 130px; padding: 10px 12px; }
+  .modal-backdrop { padding: 10px; }
+  .modal { padding: 16px; max-height: 90dvh; }
+  .modal header, .manage-row { flex-wrap: wrap; gap: 10px; }
+  .manage-info { min-width: 0; overflow-wrap: anywhere; }
+  .manage-actions { flex-basis: 100%; }
   .stat-grid { grid-template-columns: 1fr; }
   .podium-col { width: 96px; }
 }

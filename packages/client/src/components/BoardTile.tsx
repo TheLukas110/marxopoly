@@ -1,6 +1,7 @@
 import { type Deed, type GameState, type Tile } from '@marxopoly/shared';
 import { money, tileColor } from '../lib.js';
 import type { BoardLayout, SpecialTileStyle } from '../maps/index.js';
+import TileName from './TileName.js';
 
 interface Props {
   tile: Tile;
@@ -45,6 +46,7 @@ export default function BoardTile({ tile, state, layout, special: specialMap, on
       } as React.CSSProperties}
       onClick={() => ownable && onSelect(tile.id)}
       aria-label={custom ?? tile.name}
+      title={custom ?? tile.name}
     >
       {/* Ownership shows as a thick bar on the tile's outer edge. */}
       {owner && <span className="tile-owner-bar" style={{ background: owner.color }} />}
@@ -61,7 +63,7 @@ export default function BoardTile({ tile, state, layout, special: specialMap, on
 
       <span className="tile-body">
         {!ownable && special && <span className="tile-glyph">{special.glyph}</span>}
-        <span className="tile-name">{label}</span>
+        <TileName skin={specialMap}>{label}</TileName>
         {'price' in tile && <span className="tile-price">{money(tile.price)}</span>}
         {tile.kind === 'tax' && <span className="tile-price">Pay {money(tile.amount)}</span>}
         {deed?.mortgaged && <span className="tile-mortgage">MORTGAGED</span>}

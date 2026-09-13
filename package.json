@@ -12,15 +12,12 @@
     "dev": "pnpm --parallel --filter \"./packages/*\" dev",
     "build": "pnpm --filter @marxopoly/shared build && pnpm --filter @marxopoly/server build && pnpm --filter @marxopoly/client build",
     "start": "pnpm --filter @marxopoly/server start",
-    "share": "pnpm --filter @marxopoly/shared build && pnpm --filter @marxopoly/client build && pnpm --filter @marxopoly/server share",
+    "share": "pnpm build && pnpm --filter @marxopoly/server share",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm --filter @marxopoly/shared test",
+    "test": "pnpm --filter @marxopoly/shared test && pnpm --filter @marxopoly/client test",
     "clean": "rm -rf packages/*/dist packages/*/tsconfig.tsbuildinfo node_modules packages/*/node_modules"
   },
   "devDependencies": {
     "typescript": "^5.6.3"
-  },
-  "dependencies": {
-    "pnpm": "^11.25.0"
   }
 }

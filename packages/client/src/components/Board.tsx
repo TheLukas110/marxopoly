@@ -1,9 +1,14 @@
+import { lazy, Suspense } from 'react';
 import { BOARD, type GameState } from '@marxopoly/shared';
 import BoardTile from './BoardTile.js';
 import TokenLayer from './TokenLayer.js';
 import { money } from '../lib.js';
 import { useMap } from '../maps/index.js';
 import Dice from './Dice.js';
+import BoardViewport from './BoardViewport.js';
+import { setBoardView, useBoardView } from '../board-view.js';
+
+const WorldBoard = lazy(() => import('./WorldBoard.js'));
 
 interface Props {
   state: GameState;
@@ -13,13 +18,18 @@ interface Props {
 
 export default function Board({ state, selected, onSelect }: Props) {
   const map = useMap();
+  const view = useBoardView();
   const { layout } = map;
   const current = state.players.find((p) => p.seat === state.turnSeat && !p.bankrupt);
   const card = state.drawnCard;
   const cardText = card ? state.cards.find((c) => c.id === card.cardId)?.text ?? '' : '';
 
+  if (view === '3d') return <Suspense fallback={<div className="world-loading" role="status">Building your world…</div>}>
+    <WorldBoard theme={map.id} state={state} selected={selected} onSelect={onSelect} onUnavailable={() => setBoardView('2d')} />
+  </Suspense>;
+
   return (
-    <div className={`board-wrap${map.wrapClass ? ` ${map.wrapClass}` : ''}`}>
+    <BoardViewport map={map}>
       <div
         className="board"
         style={{
@@ -67,6 +77,6 @@ export default function Board({ state, selected, onSelect }: Props) {
           )}
         </div>
       </div>
-    </div>
+    </BoardViewport>
   );
 }

@@ -2,38 +2,37 @@ import { ringLayout } from './layout.js';
 import type { MapDefinition } from './types.js';
 
 /**
- * A deliberately ugly test skin. It exists to prove the map system works —
- * equal-sized tracks, hard edges, loud colours, monospace text. Not meant
- * to look good.
+ * The flat companion to Block Party: blueprint blue, ivory spaces, and
+ * construction-yellow accents, with equal-width tracks.
  */
 export const DUMMY: MapDefinition = {
   id: 'dummy',
-  name: 'Dummy',
-  description: 'A plain test board — not pretty on purpose.',
+  name: 'Block Party',
+  description: 'A geometric construction playground with stacked blocks and a giant crane.',
   layout: ringLayout({ cornerFr: 1 }),
   vars: {
-    '--board-face': '#1e1e1e',
-    '--board-frame': '#ff00ff',
-    '--board-gap': '5px',
-    '--board-pad': '5px',
-    '--board-radius': '0px',
-    '--tile-ink': '#00ff00',
-    '--tile-price-ink': '#ffd000',
-    '--tile-radius': '0px',
-    '--tile-border': '2px dashed #ff00ff',
+    '--board-face': '#e7e3db',
+    '--board-frame': '#52677f',
+    '--board-gap': '3px',
+    '--board-pad': '9px',
+    '--board-radius': '10px',
+    '--tile-ink': '#293d50',
+    '--tile-price-ink': '#526476',
+    '--tile-radius': '3px',
+    '--tile-border': '1px solid #a6b2ba',
     '--centre-bg':
-      'repeating-linear-gradient(45deg, #ff00ff 0 14px, #00ffff 14px 28px)',
-    '--centre-ink': '#000000',
-    '--centre-muted': '#222222',
+      'linear-gradient(145deg, #d7e1e3, #bbced5)',
+    '--centre-ink': '#293d50',
+    '--centre-muted': '#526476',
   },
   wrapClass: 'map-dummy',
   special: {
-    start: { bg: '#00ff00', glyph: '<', label: 'GO' },
-    holding: { bg: '#ff8800', glyph: 'X', label: 'HOLD' },
-    plaza: { bg: '#00ffff', glyph: '*', label: 'PLAZA' },
-    dispatch: { bg: '#ff0000', glyph: '!', label: 'GO TO HOLD' },
-    fortune: { bg: '#ffff00', glyph: '?' },
-    ledger: { bg: '#00aaff', glyph: '#' },
-    tax: { bg: '#cccccc', glyph: '$' },
+    start: { bg: '#99bba7', glyph: '←', label: 'GO' },
+    holding: { bg: '#e2bf72', glyph: 'Ⅱ', label: 'HOLD' },
+    plaza: { bg: '#97b5cc', glyph: '✳', label: 'PLAZA' },
+    dispatch: { bg: '#dba18d', glyph: '!', label: 'GO TO HOLD' },
+    fortune: { bg: '#e6cc8d', glyph: '?' },
+    ledger: { bg: '#b8aed0', glyph: '≡' },
+    tax: { bg: '#c8d0d2', glyph: '$' },
   },
 };

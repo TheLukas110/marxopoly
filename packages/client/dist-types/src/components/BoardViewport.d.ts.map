@@ -1,0 +1,1 @@
+{"version":3,"file":"BoardViewport.d.ts","sourceRoot":"","sources":["../../../src/components/BoardViewport.tsx"],"names":[],"mappings":"AAAA,OAAO,EAA6E,KAAK,SAAS,EAAE,MAAM,OAAO,CAAC;AAGlH,OAAO,KAAK,EAAE,aAAa,EAAE,MAAM,kBAAkB,CAAC;AAWtD,MAAM,CAAC,OAAO,UAAU,aAAa,CAAC,EAAE,GAAG,EAAE,QAAQ,EAAE,EAAE;IAAE,GAAG,EAAE,aAAa,CAAC;IAAC,QAAQ,EAAE,SAAS,CAAA;CAAE,+BAiInG"}

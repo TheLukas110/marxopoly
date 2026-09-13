@@ -4,7 +4,9 @@ import type { GameSettings } from '@marxopoly/shared';
 import { playerIcon } from '../lib.js';
 import CardsPanel from './CardsPanel.js';
 import MapPicker from './MapPicker.js';
+import BoardViewToggle from './BoardViewToggle.js';
 import InviteLink from './InviteLink.js';
+import WorldGallery from './WorldGallery.js';
 
 const TOGGLES: { key: keyof GameSettings; label: string; hint: string }[] = [
   { key: 'auctionsEnabled', label: 'Auctions', hint: 'Declined properties go under the hammer.' },
@@ -42,7 +44,10 @@ export default function Lobby() {
           </p>
         </div>
         <div className="row">
-          <MapPicker />
+          <div className="board-preferences" role="group" aria-label="Board display">
+            <MapPicker />
+            <BoardViewToggle />
+          </div>
           <button className="btn ghost" onClick={() => setShowCards(true)}>
             {isHost ? 'Customise' : 'View cards'}
           </button>
@@ -56,6 +61,10 @@ export default function Lobby() {
         <CardsPanel state={game} editable={isHost} onClose={() => setShowCards(false)} />
       )}
 
+      <section className="lobby-worlds" aria-labelledby="lobby-world-title">
+        <div className="section-heading"><div><span className="eyebrow">SET THE SCENE</span><h2 id="lobby-world-title">Where will you make your fortune?</h2></div><p>Choose your own view. Everyone keeps their favourite world.</p></div>
+        <WorldGallery compact />
+      </section>
       <div className="lobby-grid">
         {roomId && <InviteLink roomId={roomId} />}
         <section className="card">

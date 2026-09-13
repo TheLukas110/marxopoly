@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "test": "node --test --test-concurrency=1 board-view.test.mjs world.test.mjs",
+    "previews": "node scripts/generate-world-previews.mjs",
     "typecheck": "tsc -b --force"
   },
   "dependencies": {

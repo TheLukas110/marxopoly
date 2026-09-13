@@ -1,4 +1,5 @@
 import { MAPS, setMapId, useMapId } from '../maps/index.js';
+import { worldTheme } from '../world/themes.js';
 
 /**
  * Lets each player pick their own board skin. The choice is local (stored in
@@ -15,12 +16,12 @@ export default function MapPicker({ compact = false }: { compact?: boolean }) {
       <select
         className="input"
         value={mapId}
-        title={active?.description}
+        title={active ? worldTheme(active.id).description : undefined}
         onChange={(e) => setMapId(e.target.value)}
       >
         {MAPS.map((m) => (
-          <option key={m.id} value={m.id} title={m.description}>
-            {m.name}
+          <option key={m.id} value={m.id} title={worldTheme(m.id).description}>
+            {worldTheme(m.id).name}
           </option>
         ))}
       </select>
