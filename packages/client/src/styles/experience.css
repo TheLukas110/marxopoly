@@ -67,39 +67,6 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; gap:
 .wordmark { display: inline-flex; align-items: center; font-size: 26px; font-weight: 750; letter-spacing: -1.2px; text-decoration: none; }
 .wordmark-period { color: var(--accent); }
 .brand-symbol { width: 31px; height: 31px; margin-right: 10px; background: var(--accent); color: #253328; display: grid; place-items: center; border-radius: 50%; font-size: 25px; line-height: 1; flex: none; }
-.district-board .tile { flex-direction: column; }
-/* Open at the entrance and exit: the soft rails trace the continuous route. */
-.district-board .tile::before {
-  content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
-  border-style: solid; border-color: color-mix(in srgb, var(--tile-ink) 38%, transparent);
-  border-width: var(--route-top) var(--route-right) var(--route-bottom) var(--route-left);
-  border-radius: 3px;
-}
-.district-board .tile-head { position: absolute; top: 4px; right: 4px; width: 9px; height: 9px; border-radius: 50%; z-index: 1; }
-.district-board .tile-buildings { position: absolute; top: 9px; right: 0; font-size: 7px; color: var(--tile-ink); }
-.district-board .tile-buildings .hotel { background: var(--centre-ink); }
-.district-board .tile-body { padding-bottom: 22%; }
-.district-board .route-step {
-  display: inline-flex; align-items: center; justify-content: space-between; gap: 4px;
-  align-self: flex-start; flex-shrink: 0; padding: 1px 4px; border-radius: 4px;
-  font: 750 clamp(9px, calc(var(--board-unit) * 1.6), 12px)/1.1 "Segoe UI", sans-serif;
-  background: #213b35; color: #fff8dc;
-}
-.district-board .route-arrow { font-size: 1.45em; line-height: 1; }
-/* Mark the exit edge as well as the numbered step, including the return to Start. */
-.district-board .tile::after {
-  content: ''; position: absolute; width: 9px; height: 9px;
-  background: #213b35; filter: drop-shadow(0 0 1px #fff8dc);
-  clip-path: polygon(0 0, 100% 50%, 0 100%); pointer-events: none;
-}
-.district-board .tile[data-direction="→"]::after { right: 1px; top: calc(50% - 4.5px); }
-.district-board .tile[data-direction="←"]::after { left: 1px; top: calc(50% - 4.5px); transform: rotate(180deg); }
-.district-board .tile[data-direction="↓"]::after { bottom: 1px; left: calc(50% - 4.5px); transform: rotate(90deg); }
-.district-board .tile[data-direction="↑"]::after { top: 1px; left: calc(50% - 4.5px); transform: rotate(-90deg); }
-.district-board .board-centre { padding: 6px; gap: 5px; flex-direction: row; flex-wrap: wrap; justify-content: center; overflow: auto; }
-.district-board .board-centre .brand { font-size: clamp(12px, calc(var(--board-unit) * 2.7), 22px); }
-.district-board .centre-card { max-width: 65%; margin: 0; padding: 5px; font-size: clamp(8px, calc(var(--board-unit) * 1.8), 13px); }
-.district-board .centre-turn { font-size: clamp(8px, calc(var(--board-unit) * 1.8), 13px); }
 .home-nav-links { display: flex; gap: 32px; font-size: 12px; font-weight: 550; }
 .home-nav-links a { text-decoration: none; color: var(--muted); }
 .home-nav-links a:hover { color: var(--text); }

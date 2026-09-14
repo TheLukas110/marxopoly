@@ -8,3 +8,4 @@ packages/*/*.tsbuildinfo
 .wrangler/
 .dev.vars
 .dev.vars.*
+richup_ss.png

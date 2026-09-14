@@ -1,4 +1,4 @@
-import { districtLayout } from './layout.js';
+import { ringLayout } from './layout.js';
 import type { MapDefinition } from './types.js';
 
 /**
@@ -13,7 +13,7 @@ export const PRIDE: MapDefinition = {
   id: 'pride',
   name: 'Pride',
   description: 'Warm white board with a soft rainbow frame and muted flag colours.',
-  layout: districtLayout(),
+  layout: ringLayout(),
   vars: {
     '--board-face': '#fffdf9',
     '--board-frame': 'transparent',

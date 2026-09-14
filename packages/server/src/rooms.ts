@@ -177,6 +177,7 @@ export class RoomManager {
           ? { ok: true, room, playerId, token, displacedSocketId: previous }
           : { ok: true, room, playerId, token };
       }
+      return { ok: false, error: 'This seat is no longer available. You can forget it and join the table again.' };
     }
 
     // A game already under way has no seats to give — join as a viewer instead.
@@ -261,6 +262,9 @@ export class RoomManager {
   }
 
   leave(room: Room, playerId: string): void {
+    const dropTimer = room.dropTimers.get(playerId);
+    if (dropTimer) clearTimeout(dropTimer);
+    room.dropTimers.delete(playerId);
     room.sockets.delete(playerId);
     if (room.state.phase === 'lobby') {
       room.state = removePlayerFromLobby(room.state, playerId);
@@ -304,10 +308,6 @@ export class RoomManager {
     room.sockets.delete(playerId);
     this.dispatchInternal(room, playerId, { type: 'set_connected', playerId, connected: false });
 
-    if (room.state.phase === 'lobby') {
-      this.leave(room, playerId);
-      return;
-    }
     if (room.state.phase === 'game_over') return;
 
     const existing = room.dropTimers.get(playerId);
@@ -317,7 +317,7 @@ export class RoomManager {
       setTimeout(() => {
         room.dropTimers.delete(playerId);
         if (room.sockets.has(playerId)) return;
-        this.dispatchInternal(room, playerId, { type: 'resign' });
+        this.leave(room, playerId);
       }, config.reconnectGraceMs),
     );
   }

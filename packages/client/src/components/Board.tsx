@@ -31,7 +31,7 @@ export default function Board({ state, selected, onSelect }: Props) {
   return (
     <BoardViewport map={map}>
       <div
-        className="board district-board"
+        className="board"
         style={{
           ...map.vars,
           gridTemplateColumns: layout.gridTemplateColumns,

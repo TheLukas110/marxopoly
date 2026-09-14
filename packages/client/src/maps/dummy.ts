@@ -1,4 +1,4 @@
-import { districtLayout } from './layout.js';
+import { ringLayout } from './layout.js';
 import type { MapDefinition } from './types.js';
 
 /**
@@ -9,7 +9,7 @@ export const DUMMY: MapDefinition = {
   id: 'dummy',
   name: 'Block Party',
   description: 'A geometric construction playground with stacked blocks and a giant crane.',
-  layout: districtLayout(),
+  layout: ringLayout(),
   vars: {
     '--board-face': '#e7e3db',
     '--board-frame': '#52677f',

@@ -21,14 +21,6 @@ export default function BoardTile({ tile, state, layout, special: specialMap, on
   const special = specialMap[tile.kind];
   const isCorner = edge === 'corner';
   const custom = state.tileNames[tile.id];
-  const cell = layout.position(tile.id);
-  const neighbours = [layout.position(tile.id - 1), layout.position(tile.id + 1)];
-  const routeBorders = {
-    '--route-top': neighbours.some(p => p.gridRow === cell.gridRow - 1 && p.gridColumn === cell.gridColumn) ? '0px' : '2px',
-    '--route-bottom': neighbours.some(p => p.gridRow === cell.gridRow + 1 && p.gridColumn === cell.gridColumn) ? '0px' : '2px',
-    '--route-left': neighbours.some(p => p.gridColumn === cell.gridColumn - 1 && p.gridRow === cell.gridRow) ? '0px' : '2px',
-    '--route-right': neighbours.some(p => p.gridColumn === cell.gridColumn + 1 && p.gridRow === cell.gridRow) ? '0px' : '2px',
-  };
   const label = isCorner
     ? special?.label ?? tile.name
     : custom ?? tile.short ?? tile.name;
@@ -48,10 +40,8 @@ export default function BoardTile({ tile, state, layout, special: specialMap, on
     <button
       type="button"
       className={classes}
-      data-direction={layout.direction(tile.id)}
       style={{
         ...layout.position(tile.id),
-        ...routeBorders,
         ...(isCorner || !ownable ? { '--tile-bg': special?.bg ?? '#f1f5f9' } : null),
       } as React.CSSProperties}
       onClick={() => ownable && onSelect(tile.id)}
@@ -72,9 +62,6 @@ export default function BoardTile({ tile, state, layout, special: specialMap, on
       )}
 
       <span className="tile-body">
-        <span className="route-step" aria-hidden="true">
-          {tile.id + 1}<span className="route-arrow">{layout.direction(tile.id)}</span>
-        </span>
         {!ownable && special && <span className="tile-glyph">{special.glyph}</span>}
         <TileName skin={specialMap}>{label}</TileName>
         {'price' in tile && <span className="tile-price">{money(tile.price)}</span>}

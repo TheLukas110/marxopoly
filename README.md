@@ -38,8 +38,7 @@ whatever state the server broadcasts. Every rule lives in one place.
 - **Report bankrupt** — give up at any time: your properties go back to the bank (no houses),
   your cash is wiped, and the game ends if you were the second-to-last player. You keep your
   seat and can watch the rest of the game — unlike *Leave table*, which drops you out entirely.
-- **Reconnect** — your seat is held for two minutes; refreshing the tab drops you straight back in,
-  and a second tab joins as a separate player instead of stealing your seat.
+- **Reconnect** — your seat is held for two minutes, including in the lobby; refreshing the tab drops you straight back in. After closing the browser, reopen the site in the same browser profile and use **Rejoin** at the top of the home page to recover your saved seat. Recovery requires the room to still exist and browser storage to be available. Multiple seats are saved separately; a second tab can join as a separate player without automatically claiming your existing seat.
 - **Watch a game in progress** — a table that has already started still shows in the list; joining it
   (or a folded player staying on) puts you in view-only mode with no board actions. Finished games
   drop off the list entirely.

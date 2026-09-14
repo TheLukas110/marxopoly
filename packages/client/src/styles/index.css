@@ -699,8 +699,10 @@ button:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focu
 }
 .tabs button.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .log-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
-.log-line, .chat-line { display: flex; gap: 8px; align-items: baseline; font-size: 13px; line-height: 1.45; }
+.log-line, .chat-line { display: flex; flex-shrink: 0; min-width: 0; gap: 8px; align-items: baseline; font-size: 13px; line-height: 1.45; }
+.chat-content { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .log-line .chip, .chat-line .chip { flex: none; align-self: center; }
+.chat-line .chip { align-self: baseline; }
 .log-line.money { color: var(--ink-money); font-weight: 600; }
 .log-line.card { color: var(--ink-card); font-weight: 600; }
 .log-line.system { color: var(--muted); }
