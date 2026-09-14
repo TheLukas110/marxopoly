@@ -97,8 +97,11 @@ function dispatch(g: GameState, playerId: string, action: GameAction, now: numbe
     case 'propose_trade':
       return doProposeTrade(g, playerId, action, now);
     case 'accept_trade':
-      return doAcceptTrade(g, playerId, action.tradeId, now);
+      return doAcceptTrade(g, playerId, action.tradeId, now, action.message);
+    case 'counter_trade':
+      return doCounterTrade(g, playerId, action, now);
     case 'decline_trade':
+      return doDropTrade(g, playerId, action.tradeId, now, action.message);
     case 'cancel_trade':
       return doDropTrade(g, playerId, action.tradeId, now);
     case 'declare_bankruptcy':
@@ -776,6 +779,7 @@ function sanitizeSide(side: TradeSide): TradeSide {
 }
 
 function validateSide(g: GameState, ownerId: string, side: TradeSide): string | null {
+  if (!Number.isFinite(side.cash) || !Number.isFinite(side.reprieveCards)) return 'Trade amounts must be finite.';
   const owner = getPlayer(g, ownerId);
   if (!owner) return 'Unknown player.';
   if (owner.cash < side.cash) return `${owner.name} does not have that much cash.`;
@@ -840,11 +844,28 @@ function doProposeTrade(
   };
   if (action.message) offer.message = action.message.slice(0, 200);
   g.trades.push(offer);
-  log(g, 'trade', `${from.name} sent ${to.name} a trade offer.`, playerId);
+  log(g, 'trade', `${from.name} sent ${to.name} a trade offer.${tradeNote(offer.message)}`, playerId);
   return null;
 }
 
-function doAcceptTrade(g: GameState, playerId: string, tradeId: string, now: number): string | null {
+function tradeNote(message?: string): string {
+  return typeof message === 'string' && message.trim() ? ` Note: ${message.trim().slice(0, 200)}` : '';
+}
+
+/** Replacing the offer is atomic: a rejected counter leaves the original intact. */
+function doCounterTrade(g: GameState, playerId: string, action: Extract<GameAction, { type: 'counter_trade' }>, now: number): string | null {
+  const original=g.trades.find(t=>t.id===action.tradeId);
+  if(!original) return 'That offer is gone.';
+  if(original.toId!==playerId) return 'This offer is not addressed to you.';
+  const error=doProposeTrade(g,playerId,{...action,type:'propose_trade',toId:original.fromId},now);
+  if(error) return error;
+  g.trades[g.trades.length-1]!.counterOf=original.id;
+  g.trades=g.trades.filter(t=>t.id!==original.id);
+  log(g,'trade',`${getPlayer(g,playerId)!.name} declined the original offer and made a counteroffer.${tradeNote(action.message)}`,playerId);
+  return null;
+}
+
+function doAcceptTrade(g: GameState, playerId: string, tradeId: string, now: number, message?: string): string | null {
   if (g.phase === 'lobby' || g.phase === 'game_over') return 'Trading is closed.';
   const index = g.trades.findIndex((t) => t.id === tradeId);
   if (index === -1) return 'That offer is gone.';
@@ -910,19 +931,19 @@ function doAcceptTrade(g: GameState, playerId: string, tradeId: string, now: num
     (t) => ![...t.give.tileIds, ...t.receive.tileIds].some((id) => touched.has(id)),
   );
 
-  log(g, 'trade', `${from.name} and ${to.name} agreed a trade.`, playerId);
+  log(g, 'trade', `${from.name} and ${to.name} agreed a trade.${tradeNote(message)}`, playerId);
   maybeSettleDebt(g, now);
   return null;
 }
 
-function doDropTrade(g: GameState, playerId: string, tradeId: string, _now: number): string | null {
+function doDropTrade(g: GameState, playerId: string, tradeId: string, _now: number, message?: string): string | null {
   const index = g.trades.findIndex((t) => t.id === tradeId);
   if (index === -1) return 'That offer is gone.';
   const offer = g.trades[index]!;
   if (offer.fromId !== playerId && offer.toId !== playerId) return 'Not your offer.';
   g.trades.splice(index, 1);
   const actor = getPlayer(g, playerId);
-  if (actor) log(g, 'trade', `${actor.name} ${offer.fromId === playerId ? 'withdrew' : 'declined'} a trade offer.`, playerId);
+  if (actor) log(g, 'trade', `${actor.name} ${offer.fromId === playerId ? 'withdrew' : 'declined'} a trade offer.${tradeNote(message)}`, playerId);
   return null;
 }
 

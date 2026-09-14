@@ -8,6 +8,7 @@
     "dev": "tsx watch src/index.ts",
     "share": "node dist/index.js --share",
     "build": "tsc -p tsconfig.json",
+    "test": "tsx --test test/*.test.ts",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

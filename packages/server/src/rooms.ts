@@ -19,6 +19,7 @@ import {
 } from '@marxopoly/shared';
 import { config } from './config.js';
 import { decideBotAction } from './bot.js';
+import { createBotTradeMemory, type BotTradeMemory } from './bot-trading.js';
 
 const BOT_NAMES = ['Mira', 'Oslo', 'Pike', 'Junot', 'Wren', 'Cass', 'Bly', 'Nero'];
 
@@ -44,6 +45,7 @@ export interface Room {
   /** playerId -> timer that forfeits the seat if they never come back. */
   dropTimers: Map<string, NodeJS.Timeout>;
   botTimer: NodeJS.Timeout | null;
+  botTradeMemory: BotTradeMemory;
   lastActivity: number;
 }
 
@@ -135,6 +137,7 @@ export class RoomManager {
       spectatorSockets: new Set(),
       dropTimers: new Map(),
       botTimer: null,
+      botTradeMemory: createBotTradeMemory(),
       lastActivity: Date.now(),
     };
     this.rooms.set(id, room);
@@ -400,7 +403,7 @@ export class RoomManager {
 
     room.botTimer = setTimeout(() => {
       room.botTimer = null;
-      const action = decideBotAction(room.state, actor);
+      const action = decideBotAction(room.state, actor, room.botTradeMemory);
       if (!action) return;
       this.dispatchInternal(room, actor, action);
     }, config.botThinkMs);

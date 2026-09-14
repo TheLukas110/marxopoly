@@ -46,7 +46,12 @@ whatever state the server broadcasts. Every rule lives in one place.
 - **Bright, readable board** — district colour markers, short board labels, large tokens with
   player initials, and an owner bar on each tile's outer edge.
 - **Turn timers** — configurable, with sensible auto-resolution when they expire.
-- **Bots** — heuristic opponents that buy, build, bid and answer trades.
+- **Bots** — heuristic opponents that buy, build, bid and negotiate trades. They offer cash
+  purchases and property swaps to assemble groups, sell spare deeds when cash is low, and value
+  reprieve cards. Offers account for complete groups, mortgages, transfer interest and a cash
+  reserve. Bots accept useful offers, decline poor or stale ones, or replace an offer with a
+  cash-adjusted counteroffer. Notes explain their estimates; replies remain in the game log.
+  Negotiation limits prevent repeated offers within a turn and endless counteroffer chains.
 - **Deterministic** — the whole game runs off one seed, so a game replays identically.
 
 ## Quick start
@@ -109,7 +114,7 @@ client and server when source files change.
 Before handing a change over, run the automated checks from the repository root:
 
 ```bash
-pnpm test       # game-engine and client tests
+pnpm test       # game-engine, bot trading and client tests
 pnpm typecheck  # TypeScript checks for every package
 pnpm build      # production build, served locally with `pnpm start`
 ```
@@ -305,7 +310,7 @@ and every action asserts the phase it is legal in.
 ## Testing
 
 ```bash
-pnpm test          # engine unit tests (vitest)
+pnpm test          # engine, bot trading and client tests
 pnpm typecheck     # all three packages
 ```
 

@@ -14,19 +14,20 @@ import {
   type GameAction,
   type GameState,
 } from '@marxopoly/shared';
+import { answerTrade, createBotTradeMemory, proposeBotTrade, type BotTradeMemory } from './bot-trading.js';
 
 /**
  * A deliberately simple heuristic opponent. It is not trying to be strong —
  * it is trying to keep a table moving when seats are empty.
  */
-export function decideBotAction(state: GameState, playerId: string): GameAction | null {
+export function decideBotAction(state: GameState, playerId: string, tradeMemory: BotTradeMemory = createBotTradeMemory()): GameAction | null {
   const me = getPlayer(state, playerId);
-  if (!me || me.bankrupt) return null;
+  if (!me || me.bankrupt || state.phase === 'lobby' || state.phase === 'game_over') return null;
 
   // Answer any trade offers pointed at us first.
   const offer = state.trades.find((t) => t.toId === playerId);
   if (offer) {
-    return valueTrade(state, playerId) ? { type: 'accept_trade', tradeId: offer.id } : { type: 'decline_trade', tradeId: offer.id };
+    return answerTrade(state, playerId, offer, tradeMemory);
   }
 
   if (state.phase === 'debt' && state.debt?.debtorId === playerId) {
@@ -76,6 +77,8 @@ export function decideBotAction(state: GameState, playerId: string): GameAction 
   }
 
   if (state.phase === 'post_roll') {
+    const trade = proposeBotTrade(state, playerId, tradeMemory);
+    if (trade) return trade;
     const build = pickBuild(state, playerId);
     if (build !== null) return { type: 'build', tileId: build };
     return { type: 'end_turn' };
@@ -114,22 +117,4 @@ function pickBuild(state: GameState, playerId: string): number | null {
   if (choice === undefined) return null;
   const cost = ownableTile(choice)?.kind === 'street' ? (ownableTile(choice) as { buildCost: number }).buildCost : 0;
   return me.cash - cost >= 300 ? choice : null;
-}
-
-/** Accept a trade only when the incoming side is worth clearly more. */
-function valueTrade(state: GameState, playerId: string): boolean {
-  const offer = state.trades.find((t) => t.toId === playerId);
-  if (!offer) return false;
-  const incoming = offer.give.cash + offer.give.tileIds.reduce((s, id) => s + tilePrice(id), 0);
-  const outgoing = offer.receive.cash + offer.receive.tileIds.reduce((s, id) => s + tilePrice(id), 0);
-  const me = getPlayer(state, playerId);
-  if (!me) return false;
-  // Interest the engine will charge for any mortgaged deed coming our way.
-  const interest = offer.give.tileIds.reduce((s, id) => {
-    const deed = state.deeds[id];
-    const tile = ownableTile(id);
-    return deed?.mortgaged && tile ? s + Math.ceil(Math.floor(tile.price / 2) * 0.1) : s;
-  }, 0);
-  if (me.cash < offer.receive.cash + interest) return false;
-  return incoming >= outgoing * 1.2;
 }
