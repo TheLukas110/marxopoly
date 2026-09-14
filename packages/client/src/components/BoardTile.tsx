@@ -21,6 +21,14 @@ export default function BoardTile({ tile, state, layout, special: specialMap, on
   const special = specialMap[tile.kind];
   const isCorner = edge === 'corner';
   const custom = state.tileNames[tile.id];
+  const cell = layout.position(tile.id);
+  const neighbours = [layout.position(tile.id - 1), layout.position(tile.id + 1)];
+  const routeBorders = {
+    '--route-top': neighbours.some(p => p.gridRow === cell.gridRow - 1 && p.gridColumn === cell.gridColumn) ? '0px' : '2px',
+    '--route-bottom': neighbours.some(p => p.gridRow === cell.gridRow + 1 && p.gridColumn === cell.gridColumn) ? '0px' : '2px',
+    '--route-left': neighbours.some(p => p.gridColumn === cell.gridColumn - 1 && p.gridRow === cell.gridRow) ? '0px' : '2px',
+    '--route-right': neighbours.some(p => p.gridColumn === cell.gridColumn + 1 && p.gridRow === cell.gridRow) ? '0px' : '2px',
+  };
   const label = isCorner
     ? special?.label ?? tile.name
     : custom ?? tile.short ?? tile.name;
@@ -43,6 +51,7 @@ export default function BoardTile({ tile, state, layout, special: specialMap, on
       data-direction={layout.direction(tile.id)}
       style={{
         ...layout.position(tile.id),
+        ...routeBorders,
         ...(isCorner || !ownable ? { '--tile-bg': special?.bg ?? '#f1f5f9' } : null),
       } as React.CSSProperties}
       onClick={() => ownable && onSelect(tile.id)}

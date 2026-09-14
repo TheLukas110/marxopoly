@@ -21,6 +21,40 @@ test('crowded labels preserve inspection priority and reject clipped boxes', asy
   assert.equal(candidates[0].id,1,'layout must not mutate input order');
 });
 
+test('navigation survives hidden labels, fades after arrival and respects reduced motion',async(t)=>{
+  const descriptor=Object.getOwnPropertyDescriptor(globalThis,'window');
+  const {createWorldRenderer}=await server.ssrLoadModule('/src/world/renderer.ts');
+  let now=0,reduced=false,rings=0,lines=0;
+  t.mock.method(performance,'now',()=>now);
+  try {
+    Object.defineProperty(globalThis,'window',{configurable:true,value:{devicePixelRatio:1,matchMedia:()=>({get matches(){return reduced;}})}});
+    const gl=new Proxy({createShader:()=>({}),createProgram:()=>({}),getShaderParameter:()=>true,getProgramParameter:()=>true},
+      {get:(target,key)=>key in target?target[key]:typeof key==='string' && key===key.toUpperCase()?1:()=>{}});
+    const ctx=new Proxy({arc(){rings++;},lineTo(){lines++;}}, {get:(target,key)=>key in target?target[key]:()=>{}});
+    const renderer=createWorldRenderer({width:0,height:0,getContext:()=>gl},{getContext:()=>ctx},'cyber');
+    const state=createGame('TRAIL',[{id:'p0',name:'Player'}],{seed:123});
+    state.players[0].position=39;
+    renderer.update(state,null,null);
+    renderer.render(WORLD_CAMERA,800,600,false);
+    assert.equal(rings,1,'active position stays visible without labels');
+    const moved=structuredClone(state);moved.players[0].position=1;
+    renderer.update(moved,null,null);
+    now=115;lines=0;renderer.render(WORLD_CAMERA,800,600,false);
+    assert.ok(lines>=80,'movement draws a sampled trail across Start');
+    now=500;renderer.render(WORLD_CAMERA,800,600,false);
+    assert.equal(renderer.isAnimating(),true,'trail lingers after the piece arrives');
+    now=2000;lines=0;renderer.render(WORLD_CAMERA,800,600,false);
+    assert.equal(renderer.isAnimating(),false,'finished trail stops requesting frames');
+    assert.ok(lines<80,'expired trail is removed');
+    reduced=true;
+    const next=structuredClone(moved);next.players[0].position=4;
+    renderer.update(next,null,null);rings=0;lines=0;
+    renderer.render(WORLD_CAMERA,800,600,false);
+    assert.equal(renderer.isAnimating(),false);assert.equal(rings,1);assert.ok(lines<80);
+    renderer.dispose();
+  } finally {if(descriptor)Object.defineProperty(globalThis,'window',descriptor);else delete globalThis.window;}
+});
+
 test('rendered label boxes never overlap or escape the viewport across all worlds and cameras', async () => {
   const descriptor=Object.getOwnPropertyDescriptor(globalThis,'window');
   const {createWorldRenderer}=await server.ssrLoadModule('/src/world/renderer.ts');

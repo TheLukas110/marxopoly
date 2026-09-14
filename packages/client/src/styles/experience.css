@@ -68,6 +68,13 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; gap:
 .wordmark-period { color: var(--accent); }
 .brand-symbol { width: 31px; height: 31px; margin-right: 10px; background: var(--accent); color: #253328; display: grid; place-items: center; border-radius: 50%; font-size: 25px; line-height: 1; flex: none; }
 .district-board .tile { flex-direction: column; }
+/* Open at the entrance and exit: the soft rails trace the continuous route. */
+.district-board .tile::before {
+  content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  border-style: solid; border-color: color-mix(in srgb, var(--tile-ink) 38%, transparent);
+  border-width: var(--route-top) var(--route-right) var(--route-bottom) var(--route-left);
+  border-radius: 3px;
+}
 .district-board .tile-head { position: absolute; top: 4px; right: 4px; width: 9px; height: 9px; border-radius: 50%; z-index: 1; }
 .district-board .tile-buildings { position: absolute; top: 9px; right: 0; font-size: 7px; color: var(--tile-ink); }
 .district-board .tile-buildings .hotel { background: var(--centre-ink); }
