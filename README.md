@@ -194,6 +194,25 @@ docker compose up --build
 
 ## Configuration
 
+### Accounts and saved templates
+
+Open **Sign in / Create account** to register with a username and password. Guest play
+remains available. In a table lobby, the host can open **Customise**, edit streets and
+Fortune / Ledger cards, and use **Save streets & cards** to save a named template or
+explicitly overwrite an existing one. Select a template under **Saved streets & cards**
+when creating the next table. House rules are configured separately. Deleting a template
+does not change games already created from it.
+
+Accounts and templates live on the game server, including when the frontend is hosted
+on Cloudflare Pages. The default file is `packages/server/data/accounts.json`; set
+`ACCOUNT_DATA_FILE` to an absolute path on a persistent disk for hosted deployments.
+Docker Compose mounts a named volume automatically. Back up this file and run only
+one server process against it; this file store does not support multiple writers.
+Passwords are salted and hashed with scrypt. Random sign-in tokens expire after 30 days,
+are stored hashed on the server, and are revoked on sign-out. Browser storage remembers
+the token, never the password. Serve public deployments over HTTPS/WSS. Password recovery
+is not implemented. Each account can keep 50 templates, each with up to 200 cards.
+
 Copy `.env.example` to `.env` in the repo root (the server reads it at startup).
 
 | Variable | Default | Meaning |
@@ -315,6 +334,12 @@ pnpm typecheck     # all three packages
 
 With a built server running, check invitation URLs and multiplayer joining with
 `node packages/client/invitations.smoke.mjs http://localhost:3001`.
+
+Check account registration, cross-device sign-in, saved-template reuse and authorization with
+`node packages/client/accounts.smoke.mjs http://localhost:3107`. Start a separate built server
+on port 3107 with `ACCOUNT_DATA_FILE` pointing to a disposable test file: the smoke test
+registers a test account. The normal server test suite also checks persistence, session
+expiry, password hashing, template isolation and concurrent writes using temporary files.
 
 The engine suite covers rent maths for all three property types, even-build enforcement, mortgage
 round-trips, auction resolution, trade validation, debt and bankruptcy transfer, the holding yard,

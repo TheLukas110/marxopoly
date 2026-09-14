@@ -9,3 +9,4 @@ packages/*/*.tsbuildinfo
 .dev.vars
 .dev.vars.*
 richup_ss.png
+packages/server/data/

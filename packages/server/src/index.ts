@@ -15,6 +15,8 @@ import type {
 } from '@marxopoly/shared';
 import { config } from './config.js';
 import { RoomManager, type Room } from './rooms.js';
+import { AccountStore } from './accounts.js';
+import { applyTemplate } from '@marxopoly/shared';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -60,6 +62,8 @@ app.use(
 app.use(express.json({ limit: '64kb' }));
 
 const manager = new RoomManager();
+const accounts = new AccountStore(process.env.ACCOUNT_DATA_FILE ?? path.resolve(__dirname, '../data/accounts.json'));
+const authAttempts = new Map<string, { count: number; until: number }>();
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, uptime: process.uptime() });
@@ -174,6 +178,36 @@ function tooFast(socket: GameSocket, ack?: Ack, cost = 1): boolean {
 }
 
 io.on('connection', (socket) => {
+  socket.on('account:request', async (request, ack) => {
+    if (typeof ack !== 'function' || tooFast(socket, ack, 5)) return;
+    try {
+      if (!request || typeof request !== 'object') throw new Error('Invalid account request.');
+      if (request.action === 'login' || request.action === 'register') {
+        const now = Date.now();
+        for (const [key, value] of authAttempts) if (value.until <= now) authAttempts.delete(key);
+        const address = socket.handshake.address;
+        const attempts = authAttempts.get(address) ?? { count: 0, until: now + 15 * 60_000 };
+        authAttempts.set(address, attempts);
+        if (++attempts.count > 20) throw new Error('Too many sign-in attempts. Please try again in 15 minutes.');
+        ack({ ok: true, ...await accounts.authenticate(request.username, request.password, request.action === 'register') });
+      } else if (request.action === 'restore') {
+        ack({ ok: true, ...await accounts.restore(request.token) });
+      } else if (request.action === 'logout') {
+        await accounts.logout(request.token);
+        ack({ ok: true });
+      } else if (request.action === 'delete') {
+        ack({ ok: true, ...await accounts.delete(request.token, request.templateId) });
+      } else if (request.action === 'save') {
+        const seat = seats.get(socket.id);
+        const room = seat && manager.get(seat.roomId);
+        if (!room || seat?.spectator || room.hostId !== seat?.playerId || room.state.phase !== 'lobby') throw new Error('Only the host can save a template before the game starts.');
+        ack({ ok: true, ...await accounts.save(request.token, request.name, room.state, request.templateId) });
+      } else throw new Error('Invalid account request.');
+    } catch (err) {
+      const error = errorText(err);
+      ack({ ok: false, error: /ENOENT|EACCES|EPERM|ENOSPC/.test(error) ? 'Account storage is unavailable. Please try again later.' : error, expired: error === 'Please sign in again.' });
+    }
+  });
   socket.emit('server:info', { publicUrl: tunnelOrigin, shareEnabled: config.share });
   socket.emit('room:list', manager.list());
 
@@ -182,13 +216,15 @@ io.on('connection', (socket) => {
     socket.emit('room:list', manager.list());
   });
 
-  socket.on('room:create', (payload, ack) => {
+  socket.on('room:create', async (payload, ack) => {
     if (tooFast(socket, ack, 5)) return;
     try {
       if (!payload?.playerName?.trim()) {
         ack({ ok: false, error: 'Pick a name first.' });
         return;
       }
+      const template = payload.templateId ? await accounts.template(payload.accountToken ?? '', payload.templateId) : null;
+      if (!socket.connected) return;
       if ((roomsCreatedBy.get(socket.id) ?? 0) >= MAX_ROOMS_PER_CONNECTION) {
         ack({ ok: false, error: 'You have opened too many rooms from this connection.' });
         return;
@@ -199,6 +235,7 @@ io.on('connection', (socket) => {
         isPrivate: !!payload.isPrivate,
         settings: sanitizeSettings(payload.settings),
       });
+      if (template) room.state = applyTemplate(room.state, { tileNames: template.tileNames, cards: template.cards });
       roomsCreatedBy.set(socket.id, (roomsCreatedBy.get(socket.id) ?? 0) + 1);
       seatSocket(socket, room, playerId, token);
       ack({ ok: true, roomId: room.id });

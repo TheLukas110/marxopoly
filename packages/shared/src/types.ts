@@ -395,9 +395,10 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
+  'account:request': (request: AccountRequest, ack: (result: AccountResult) => void) => void;
   'lobby:list': () => void;
   'room:create': (
-    payload: { name: string; playerName: string; isPrivate: boolean; settings?: Partial<GameSettings> },
+    payload: { name: string; playerName: string; isPrivate: boolean; settings?: Partial<GameSettings>; accountToken?: string; templateId?: string },
     ack: (res: { ok: boolean; roomId?: string; error?: string }) => void,
   ) => void;
   'room:join': (
@@ -416,4 +417,25 @@ export interface ClientToServerEvents {
   'room:add_card': (card: CardInput) => void;
   /** Host only, lobby only: delete a special card by id. */
   'room:remove_card': (cardId: string) => void;
+}
+
+export interface SavedTemplate {
+  id: string;
+  name: string;
+  updatedAt: number;
+  tileNames: Record<number, string>;
+  cards: Card[];
+}
+export type AccountRequest =
+  | { action: 'register' | 'login'; username: string; password: string }
+  | { action: 'restore' | 'logout'; token: string }
+  | { action: 'save'; token: string; name: string; templateId?: string }
+  | { action: 'delete'; token: string; templateId: string };
+export interface AccountResult {
+  ok: boolean;
+  error?: string;
+  expired?: boolean;
+  token?: string;
+  username?: string;
+  templates?: SavedTemplate[];
 }

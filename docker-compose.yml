@@ -8,4 +8,10 @@ services:
       PORT: "3001"
       CLIENT_ORIGIN: "${CLIENT_ORIGIN:-http://localhost:3001}"
       TURN_TIMEOUT_SECONDS: "90"
+      ACCOUNT_DATA_FILE: /app/packages/server/data/accounts.json
+    volumes:
+      - accounts:/app/packages/server/data
     restart: unless-stopped
+
+volumes:
+  accounts:

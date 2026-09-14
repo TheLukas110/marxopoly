@@ -3,6 +3,7 @@ import { BOARD, tileLabel, type GameState } from '@marxopoly/shared';
 import { removeCard, renameTile } from '../net.js';
 import { describeCardEffect } from '../lib.js';
 import CardEditor from './CardEditor.js';
+import { SaveTemplate } from './AccountPanel.js';
 
 interface Props {
   state: GameState;
@@ -41,6 +42,7 @@ export default function CardsPanel({ state, editable, onClose }: Props) {
               Streets
             </button>
           </div>
+          {editable && <SaveTemplate />}
 
           {tab === 'streets' ? (
             <>

@@ -8,3 +8,4 @@ packages/*/dist-types
 packages/*/*.tsbuildinfo
 .wrangler
 richup_ss.png
+packages/server/data
