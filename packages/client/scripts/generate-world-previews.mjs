@@ -9,6 +9,7 @@ const root=fileURLToPath(new URL('..',import.meta.url));
 const server=await createServer({root,configFile:false,server:{middlewareMode:true,hmr:false},appType:'custom'});
 try {
   const { buildWorld }=await server.ssrLoadModule('/src/world/scene.ts');
+  const { MAPS }=await server.ssrLoadModule('/src/maps/index.ts');
   const { cameraFrame, project, WORLD_CAMERA }=await server.ssrLoadModule('/src/world/math.ts');
   const width=800,height=600,frame=cameraFrame(WORLD_CAMERA,width/height);
   const crcTable=Array.from({length:256},(_,i)=>{let c=i;for(let j=0;j<8;j++)c=c&1?0xedb88320^(c>>>1):c>>>1;return c;});
@@ -18,7 +19,7 @@ try {
     const result=Buffer.alloc(content.length+8);result.writeUInt32BE(data.length);content.copy(result,4);result.writeUInt32BE((crc^0xffffffff)>>>0,result.length-4);return result;
   }
   await mkdir(new URL('../public/worlds/',import.meta.url),{recursive:true});
-  for(const theme of ['standard','cyber','poker','pride','dummy']) {
+  for(const {id: theme} of MAPS) {
     const {data}=buildWorld(theme),pixels=Buffer.alloc(width*height*4),depth=new Float32Array(width*height);
     for(let offset=0;offset<data.length;offset+=27) {
       const p=[0,9,18].map(i=>project(Array.from(data.slice(offset+i,offset+i+3)),frame,width,height));

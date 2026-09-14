@@ -98,24 +98,24 @@ test('each player tab chooses independently and restores its choice on reload', 
   try {
     Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value: firstStorage });
     const first = await server.ssrLoadModule('/src/board-view.ts?tab=first');
-    assert.equal(first.getBoardView(), '3d');
-    first.setBoardView('2d');
     assert.equal(first.getBoardView(), '2d');
-    assert.equal(firstStorage.getItem(storageKey), '2d');
+    first.setBoardView('3d');
+    assert.equal(first.getBoardView(), '3d');
+    assert.equal(firstStorage.getItem(storageKey), '3d');
 
     Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value: secondStorage });
     const second = await server.ssrLoadModule('/src/board-view.ts?tab=second');
-    assert.equal(second.getBoardView(), '3d');
-    assert.equal(first.getBoardView(), '2d');
+    assert.equal(second.getBoardView(), '2d');
+    assert.equal(first.getBoardView(), '3d');
 
     Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value: firstStorage });
     const reloaded = await server.ssrLoadModule('/src/board-view.ts?tab=reloaded');
-    assert.equal(reloaded.getBoardView(), '2d');
-    reloaded.setBoardView('3d');
-    assert.equal(firstStorage.getItem(storageKey), '3d');
+    assert.equal(reloaded.getBoardView(), '3d');
+    reloaded.setBoardView('2d');
+    assert.equal(firstStorage.getItem(storageKey), '2d');
     firstStorage.setItem(storageKey, 'invalid');
     const invalid = await server.ssrLoadModule('/src/board-view.ts?tab=invalid');
-    assert.equal(invalid.getBoardView(), '3d');
+    assert.equal(invalid.getBoardView(), '2d');
   } finally {
     if (descriptor) Object.defineProperty(globalThis, 'sessionStorage', descriptor);
     else delete globalThis.sessionStorage;
@@ -130,11 +130,11 @@ test('3D toggle still works when browser storage is blocked', async () => {
       get() { throw new Error('Storage disabled'); },
     });
     const view = await server.ssrLoadModule('/src/board-view.ts?tab=blocked');
-    assert.equal(view.getBoardView(), '3d');
-    view.setBoardView('2d');
     assert.equal(view.getBoardView(), '2d');
     view.setBoardView('3d');
     assert.equal(view.getBoardView(), '3d');
+    view.setBoardView('2d');
+    assert.equal(view.getBoardView(), '2d');
   } finally {
     if (descriptor) Object.defineProperty(globalThis, 'sessionStorage', descriptor);
     else delete globalThis.sessionStorage;

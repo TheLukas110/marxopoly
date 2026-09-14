@@ -3,6 +3,7 @@ import { tileColor } from '../lib.js';
 import { Geometry } from './geometry.js';
 import { worldTheme } from './themes.js';
 import type { Vec3 } from './math.js';
+import { EXPEDITION_SCENES, expeditionMarker } from './expeditions.js';
 
 export interface WorldTile { id: number; center: Vec3; min: Vec3; max: Vec3; color: string; yaw: number }
 export const RAINBOW = ['#e97479', '#eea45b', '#efcf65', '#73bba0', '#719dd2', '#aa89c9'];
@@ -151,7 +152,8 @@ export function buildWorld(theme: string) {
     if(data.kind==='street') {
       // Small architectural markers leave the property names and pieces clear.
       const bx=x*0.96,bz=z*0.96;
-      if(theme==='cyber') tower(g,bx,bz,0.6+(tile.id%3)*0.22,tile.color,0.36);
+      if(EXPEDITION_SCENES[theme]) expeditionMarker(g,theme,bx,y+0.03,bz,tile.color);
+      else if(theme==='cyber') tower(g,bx,bz,0.6+(tile.id%3)*0.22,tile.color,0.36);
       else if(theme==='poker') chips(g,bx,bz,2+(tile.id%3),tile.color,0.25,y+0.1);
       else if(theme==='dummy') { g.box(bx,y+0.38,bz,0.45,0.65,0.45,tile.color); g.cylinder(bx,y+0.7,bz,0.12,0.1,tile.color,8); }
       else house(g,bx,bz,tile.color,0.35,0.4,y+0.03);
@@ -159,7 +161,8 @@ export function buildWorld(theme: string) {
     else if(data.kind==='works') { g.cylinder(x,y+0.04,z,0.3,0.5,'#a4b3b2',12); g.cylinder(x+0.3,y+0.04,z,0.1,0.85,palette.accent,8); }
     else if(tile.id%10===0) { g.cylinder(x,y+0.06,z,0.42,0.16,tile.color,8); if(tile.id===0) g.cylinder(x,y+0.22,z,0.26,0.65,palette.accent,4,0); else g.arch(x,y+0.23,z,0.4,0.09,0.12,tile.color); }
   }
-  if(theme==='cyber') cyber(g); else if(theme==='poker') poker(g); else if(theme==='pride') pride(g); else if(theme==='dummy') blocks(g); else civic(g);
+  if(EXPEDITION_SCENES[theme]) EXPEDITION_SCENES[theme](g);
+  else if(theme==='cyber') cyber(g); else if(theme==='poker') poker(g); else if(theme==='pride') pride(g); else if(theme==='dummy') blocks(g); else civic(g);
   return { data:g.data(), tiles };
 }
 

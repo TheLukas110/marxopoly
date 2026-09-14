@@ -7,7 +7,7 @@ export default function WorldGallery({compact=false}: {compact?: boolean}) {
     {MAPS.map((map,index)=>{
       const world=worldTheme(map.id);
       return <button type="button" key={map.id} className={`world-card${active===map.id?' active':''}`} aria-pressed={active===map.id} onClick={()=>setMapId(map.id)} style={{'--world-accent':world.accent,'--world-sky':world.sky} as React.CSSProperties}>
-        <div className="world-card-art"><img src={`/worlds/${map.id}.png`} alt="" loading="lazy" width="800" height="600" /><span className="world-card-number">0{index+1}</span><span className="world-card-check" aria-hidden="true">{active===map.id?'✓':'↗'}</span></div>
+        <div className="world-card-art"><img src={`/worlds/${map.id}.png`} alt="" loading="lazy" width="800" height="600" /><span className="world-card-number">{String(index+1).padStart(2,'0')}</span><span className="world-card-check" aria-hidden="true">{active===map.id?'✓':'↗'}</span></div>
         <div className="world-card-copy"><strong>{world.name}</strong><span>{compact?'Explore this world':world.eyebrow.toLowerCase()}</span></div>
       </button>;
     })}
