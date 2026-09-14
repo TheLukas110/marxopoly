@@ -10,7 +10,16 @@ const server=await createServer({root:fileURLToPath(new URL('.',import.meta.url)
 after(()=>server.close());
 const {buildWorld,buildPieces,worldTile,movementPoint}=await server.ssrLoadModule('/src/world/scene.ts');
 const {cameraFrame,project,screenRay,intersectBox,WORLD_CAMERA,GAME_CAMERA}=await server.ssrLoadModule('/src/world/math.ts');
-const themes=['standard','cyber','poker','pride','dummy'];
+const {MAPS}=await server.ssrLoadModule('/src/maps/index.ts');
+const {WORLD_THEMES}=await server.ssrLoadModule('/src/world/themes.ts');
+const themes=MAPS.map(map=>map.id);
+
+test('every selectable map has a matching world palette and preview', async()=>{
+  const {access}=await import('node:fs/promises');
+  assert.equal(new Set(themes).size,themes.length);
+  assert.deepEqual(Object.keys(WORLD_THEMES).sort(),[...themes].sort());
+  for(const theme of themes) await access(new URL(`public/worlds/${theme}.png`,import.meta.url));
+});
 
 test('crowded labels preserve inspection priority and reject clipped boxes', async () => {
   const {visibleLabels}=await server.ssrLoadModule('/src/world/labels.ts');
@@ -89,7 +98,7 @@ test('rendered label boxes never overlap or escape the viewport across all world
   } finally {if(descriptor)Object.defineProperty(globalThis,'window',descriptor);else delete globalThis.window;}
 });
 
-test('all five worlds contain distinct, finite, solid geometry and exactly forty playable spaces',()=>{
+test('all worlds contain distinct, finite, solid geometry and exactly forty playable spaces',()=>{
   const counts=new Set();
   for(const theme of themes) {
     const {data,tiles}=buildWorld(theme);counts.add(data.length);
@@ -98,10 +107,10 @@ test('all five worlds contain distinct, finite, solid geometry and exactly forty
     assert.ok(data.every(Number.isFinite),theme);
     let highest=0;
     for(let i=0;i<data.length;i+=9) { highest=Math.max(highest,data[i+1]);assert.ok(Math.abs(data[i])<=12.2);assert.ok(Math.abs(data[i+2])<=12.2); }
-    assert.ok(highest>=3.8,`${theme} must have a real vertical skyline`);
+    assert.ok(highest>= (['standard','cyber','poker','pride','dummy'].includes(theme)?3.8:2.8),`${theme} must have a real vertical skyline`);
     assert.deepEqual(buildWorld(theme).data,data,`${theme} should be deterministic`);
   }
-  assert.equal(counts.size,5);
+  assert.equal(counts.size,themes.length);
 });
 
 test('preview and closer game cameras fit every world on phone, tablet and desktop',()=>{

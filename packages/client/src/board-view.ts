@@ -6,9 +6,9 @@ const listeners = new Set<() => void>();
 
 function readView(): BoardView {
   try {
-    return sessionStorage.getItem(STORAGE_KEY) === '2d' ? '2d' : '3d';
+    return sessionStorage.getItem(STORAGE_KEY) === '3d' ? '3d' : '2d';
   } catch {
-    return '3d';
+    return '2d';
   }
 }
 
