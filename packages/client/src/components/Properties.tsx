@@ -12,11 +12,12 @@ import {
 interface Props {
   state: GameState;
   myId: string | null;
+  onSelect?: (tileId: number) => void;
 }
 
 const GROUPS: readonly string[] = [...GROUP_ORDER, 'depot', 'works'];
 
-export default function Properties({ state, myId }: Props) {
+export default function Properties({ state, myId, onSelect }: Props) {
   const [mineOnly, setMineOnly] = useState(true);
   const playerById = new Map(state.players.map((p) => [p.id, p]));
   const myCount = myId
@@ -31,10 +32,10 @@ export default function Properties({ state, myId }: Props) {
         <h2>Properties</h2>
         {myId && (
           <div className="tabs deeds-tabs">
-            <button className={mineOnly ? '' : 'active'} onClick={() => setMineOnly(false)}>
+            <button aria-pressed={!mineOnly} className={mineOnly ? '' : 'active'} onClick={() => setMineOnly(false)}>
               All
             </button>
-            <button className={mineOnly ? 'active' : ''} onClick={() => setMineOnly(true)}>
+            <button aria-pressed={mineOnly} className={mineOnly ? 'active' : ''} onClick={() => setMineOnly(true)}>
               Mine ({myCount})
             </button>
           </div>
@@ -65,7 +66,10 @@ export default function Properties({ state, myId }: Props) {
                 const owner = deed?.ownerId ? playerById.get(deed.ownerId) : null;
                 const isMine = !!owner && owner.id === myId;
                 return (
-                  <div
+                  <button
+                    type="button"
+                    onClick={() => onSelect?.(id)}
+                    aria-label={`Inspect ${tileLabel(state, id)}`}
                     key={id}
                     className={`deed-item${isMine ? ' mine' : ''}${deed?.mortgaged ? ' mtg' : ''}`}
                   >
@@ -91,7 +95,7 @@ export default function Properties({ state, myId }: Props) {
                         <span className="muted">Bank</span>
                       )}
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -99,7 +103,7 @@ export default function Properties({ state, myId }: Props) {
         })}
       </div>
 
-      {showMineOnly && myCount === 0 && <p className="muted small">You do not own anything yet.</p>}
+      {showMineOnly && myCount === 0 && <div className="property-empty"><span aria-hidden="true">⌂</span><strong>Your portfolio starts here</strong><p>Buy a property when you land on it. Collect a colour set to start building.</p><button className="btn ghost small" onClick={() => setMineOnly(false)}>Explore all properties</button></div>}
     </div>
   );
 }

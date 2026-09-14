@@ -1,6 +1,7 @@
 export type Vec3 = [number, number, number];
 export interface WorldCamera { yaw: number; pitch: number; zoom: number }
 export const WORLD_CAMERA: WorldCamera = { yaw: 0.58, pitch: 0.82, zoom: 1 };
+export const GAME_CAMERA: WorldCamera = { ...WORLD_CAMERA, zoom: 1.2 };
 export const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 export const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 export const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];

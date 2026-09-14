@@ -348,7 +348,7 @@ export class RoomManager {
   chat(room: Room, playerId: string, text: string): void {
     const player = room.state.players.find((p) => p.id === playerId);
     if (!player) return;
-    const trimmed = clean(text).slice(0, 300);
+    const trimmed = clean(text, 300);
     if (!trimmed) return;
     const message: ChatMessage = {
       id: randomUUID(),
@@ -441,8 +441,8 @@ function pickBotActor(state: GameState): string | null {
   return current?.isBot ? current.id : null;
 }
 
-function clean(value: string): string {
-  return (value ?? '').toString().replace(/\s+/g, ' ').trim().slice(0, 24);
+function clean(value: string, maxLength = 24): string {
+  return (value ?? '').toString().replace(/\s+/g, ' ').trim().slice(0, maxLength);
 }
 
 // 6 chars from a 31-char alphabet ≈ 887M codes. Combined with join rate limiting

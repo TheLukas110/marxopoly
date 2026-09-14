@@ -14,6 +14,7 @@ export default function PlayerList({ state, myId, onTrade }: Props) {
 
   return (
     <div className="panel players">
+      <div className="panel-heading"><h2>Players</h2><span className="section-count">{state.players.filter(p => !p.bankrupt).length} in play</span></div>
       {state.players.map((p) => {
         const tiles = ownedTileIds(state, p.id);
         return (
@@ -36,7 +37,8 @@ export default function PlayerList({ state, myId, onTrade }: Props) {
             </div>
             <div className="player-meta">
               <span>{tiles.length} {tiles.length === 1 ? 'deed' : 'deeds'}</span>
-              <span>net {money(netWorth(state, p.id))}</span>
+              <span title="Cash plus the value of properties and buildings">Net worth {money(netWorth(state, p.id))}</span>
+              {p.id === current?.id && state.phase !== 'game_over' && <span className="player-turn-label">Playing</span>}
               {p.inHolding && <span className="warn">in holding</span>}
               {p.reprieveCards > 0 && <span>{p.reprieveCards} reprieve</span>}
             </div>
@@ -55,8 +57,8 @@ export default function PlayerList({ state, myId, onTrade }: Props) {
               })}
             </div>
             {canTrade && p.id !== myId && !p.bankrupt && state.phase !== 'game_over' && (
-              <button className="btn ghost small full" onClick={() => onTrade(p.id)}>
-                Offer trade
+              <button className="player-trade" aria-label={`Offer trade to ${p.name}`} onClick={() => onTrade(p.id)}>
+                Trade ↗
               </button>
             )}
           </div>

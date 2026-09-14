@@ -9,7 +9,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 const server=await createServer({root:fileURLToPath(new URL('.',import.meta.url)),configFile:false,server:{middlewareMode:true,hmr:false},appType:'custom'});
 after(()=>server.close());
 const {buildWorld,buildPieces,worldTile,movementPoint}=await server.ssrLoadModule('/src/world/scene.ts');
-const {cameraFrame,project,screenRay,intersectBox,WORLD_CAMERA}=await server.ssrLoadModule('/src/world/math.ts');
+const {cameraFrame,project,screenRay,intersectBox,WORLD_CAMERA,GAME_CAMERA}=await server.ssrLoadModule('/src/world/math.ts');
 const themes=['standard','cyber','poker','pride','dummy'];
 
 test('crowded labels preserve inspection priority and reject clipped boxes', async () => {
@@ -104,9 +104,10 @@ test('all five worlds contain distinct, finite, solid geometry and exactly forty
   assert.equal(counts.size,5);
 });
 
-test('default camera fits every world on phone, tablet and desktop',()=>{
-  for(const [width,height] of [[320,360],[390,420],[760,600],[600,400],[1100,550]]) {
-    const frame=cameraFrame(WORLD_CAMERA,width/height);
+test('preview and closer game cameras fit every world on phone, tablet and desktop',()=>{
+  for(const camera of [WORLD_CAMERA,GAME_CAMERA])
+  for(const [width,height] of [[300,570],[320,360],[390,420],[760,600],[600,400],[1100,550],[930,904]]) {
+    const frame=cameraFrame(camera,width/height);
     for(const theme of themes) {
       const {data}=buildWorld(theme);
       for(let i=0;i<data.length;i+=9) {

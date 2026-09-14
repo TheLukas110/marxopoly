@@ -153,7 +153,8 @@ test('every skin renders all tiles and eight player pieces inside the shared cam
     const state = createGame('TEST', Array.from({ length: 8 }, (_, i) => ({ id: `p${i}`, name: `Player ${i}` })), { seed: 123 });
     for (const map of MAPS) {
       setMapId(map.id);
-      const html = renderToStaticMarkup(createElement(Board, { state, selected: 1, onSelect() {} }));
+      const html = renderToStaticMarkup(createElement(Board, { state, selected: 1, onSelect() {}, controls: createElement('button', { type: 'button' }, 'Embedded turn action') }));
+      assert.ok(html.includes('class="board-turn-controls"><button type="button">Embedded turn action</button>'), map.id);
       assert.equal((html.match(/class="tile /g) ?? []).length, 40, map.id);
       assert.equal((html.match(/class="board-token/g) ?? []).length, 8, map.id);
       assert.ok(html.includes('class="board-camera"'), map.id);
