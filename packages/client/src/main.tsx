@@ -4,6 +4,7 @@ import App from './App.js';
 import { initTheme } from './theme.js';
 import './styles/index.css';
 import './styles/experience.css';
+import './styles/game-room.css';
 
 initTheme();
 

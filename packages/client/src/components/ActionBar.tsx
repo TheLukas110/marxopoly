@@ -5,10 +5,11 @@ import {
   canSellBuilding,
   liquidValue,
   ownableTile,
+  tileLabel,
   type GameState,
 } from '@marxopoly/shared';
 import { send } from '../net.js';
-import { money, phaseLabel, secondsLeft } from '../lib.js';
+import { money, phaseLabel, playerIcon, secondsLeft } from '../lib.js';
 
 interface Props {
   state: GameState;
@@ -35,9 +36,10 @@ export default function ActionBar({ state, myId, onManage }: Props) {
   return (
     <div className={`actionbar${mine || debtIsMine ? ' mine' : ''}`}>
       <div className="actionbar-status">
-        <span className="status-text">{phaseLabel(state, myId)}</span>
+        {current && <span className="chip turn-avatar" style={{ background: current.color }}>{playerIcon(current)}</span>}
+        <div className="turn-copy"><span className="turn-eyebrow">{state.phase === 'game_over' ? 'FINAL RESULTS' : debtIsMine ? 'ACTION NEEDED' : mine ? 'YOUR TURN' : 'AT THE TABLE'}</span><span className="status-text" role="status">{phaseLabel(state, myId)}</span></div>
         {left !== null && state.phase !== 'game_over' && (
-          <span className={`timer${left <= 10 ? ' urgent' : ''}`}>{left}s</span>
+          <span className={`timer${left <= 10 ? ' urgent' : ''}`} aria-label={`${left} seconds remaining`}>{left}s</span>
         )}
       </div>
 
@@ -67,7 +69,7 @@ export default function ActionBar({ state, myId, onManage }: Props) {
               disabled={(me?.cash ?? 0) < landedTile.price}
               onClick={() => send({ type: 'buy_property' })}
             >
-              Buy {landedTile.name} — {money(landedTile.price)}
+              Buy {tileLabel(state, landedTile.id)} · {money(landedTile.price)}
             </button>
             <button className="btn" onClick={() => send({ type: 'decline_property' })}>
               {state.settings.auctionsEnabled ? 'Send to auction' : 'Pass'}
@@ -101,7 +103,7 @@ export default function ActionBar({ state, myId, onManage }: Props) {
         )}
 
         {me && !me.bankrupt && state.phase !== 'game_over' && (
-          <button className="btn ghost" onClick={onManage} disabled={!canManageNow(state, me.id)}>
+          <button className="btn ghost" onClick={onManage} disabled={!canManageNow(state, me.id)} title={canManageNow(state, me.id) ? 'Build, sell buildings or mortgage your properties' : 'Property management becomes available when you own a property and the game phase allows it'}>
             Manage property
           </button>
         )}

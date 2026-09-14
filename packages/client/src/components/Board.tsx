@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { BOARD, type GameState } from '@marxopoly/shared';
 import BoardTile from './BoardTile.js';
 import TokenLayer from './TokenLayer.js';
@@ -14,9 +14,10 @@ interface Props {
   state: GameState;
   selected: number | null;
   onSelect: (tileId: number) => void;
+  controls?: ReactNode;
 }
 
-export default function Board({ state, selected, onSelect }: Props) {
+export default function Board({ state, selected, onSelect, controls }: Props) {
   const map = useMap();
   const view = useBoardView();
   const { layout } = map;
@@ -25,7 +26,7 @@ export default function Board({ state, selected, onSelect }: Props) {
   const cardText = card ? state.cards.find((c) => c.id === card.cardId)?.text ?? '' : '';
 
   if (view === '3d') return <Suspense fallback={<div className="world-loading" role="status">Building your world…</div>}>
-    <WorldBoard theme={map.id} state={state} selected={selected} onSelect={onSelect} onUnavailable={() => setBoardView('2d')} />
+    <WorldBoard theme={map.id} state={state} selected={selected} onSelect={onSelect} controls={controls} onUnavailable={() => setBoardView('2d')} />
   </Suspense>;
 
   return (
@@ -56,11 +57,12 @@ export default function Board({ state, selected, onSelect }: Props) {
           className={`board-centre${card ? ' has-card' : ''}`}
           style={{ gridColumn: layout.centre.column, gridRow: layout.centre.row }}
         >
-          {!card && <div className="brand">
+          {!card && !controls && <div className="brand">
             Common Ground<span className="dot" />
           </div>}
           <Dice dice={state.dice} />
-          {current && (
+          {controls && <div className="board-turn-controls">{controls}</div>}
+          {current && !controls && (
             <div className="centre-turn">
               <span className="chip sm" style={{ background: current.color }} />
               {current.name}'s turn

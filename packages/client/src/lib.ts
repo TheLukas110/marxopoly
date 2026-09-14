@@ -40,7 +40,7 @@ export function phaseLabel(state: GameState, myId: string | null): string {
     case 'pre_roll':
       return mine ? 'Your turn — roll the dice' : `${current?.name ?? '—'} is rolling`;
     case 'awaiting_buy':
-      return mine ? 'Buy it or send it to auction' : `${current?.name ?? '—'} is deciding`;
+      return mine ? state.settings.auctionsEnabled ? 'Buy this property or send it to auction' : 'Buy this property or pass' : `${current?.name ?? '—'} is deciding`;
     case 'auction':
       return 'Auction in progress';
     case 'debt': {

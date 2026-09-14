@@ -15,6 +15,7 @@ export default function MapPicker({ compact = false }: { compact?: boolean }) {
       <span>Map</span>
       <select
         className="input"
+        aria-label="Choose board world"
         value={mapId}
         title={active ? worldTheme(active.id).description : undefined}
         onChange={(e) => setMapId(e.target.value)}
