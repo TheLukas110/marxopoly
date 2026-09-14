@@ -20,7 +20,7 @@ export default function TradeInbox({ state, myId }: Props) {
         return (
           <div key={offer.id} className="trade-offer">
             <div className="trade-offer-head">
-              <strong>{incoming ? `${other?.name} offers` : `To ${other?.name}`}</strong>
+              <strong>{incoming ? `${other?.name} ${offer.counterOf ? 'counteroffers' : 'offers'}` : `${offer.counterOf ? 'Counteroffer to' : 'To'} ${other?.name}`}</strong>
             </div>
             <div className="trade-offer-body">
               <div>

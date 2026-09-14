@@ -177,6 +177,8 @@ export interface TradeOffer {
   receive: TradeSide;
   createdAt: number;
   message?: string;
+  /** The offer replaced by this counteroffer. */
+  counterOf?: string;
 }
 
 export interface AuctionState {
@@ -331,8 +333,9 @@ export type GameAction =
   | { type: 'use_reprieve' }
   | { type: 'end_turn' }
   | { type: 'propose_trade'; toId: string; give: TradeSide; receive: TradeSide; message?: string }
-  | { type: 'accept_trade'; tradeId: string }
-  | { type: 'decline_trade'; tradeId: string }
+  | { type: 'accept_trade'; tradeId: string; message?: string }
+  | { type: 'decline_trade'; tradeId: string; message?: string }
+  | { type: 'counter_trade'; tradeId: string; give: TradeSide; receive: TradeSide; message?: string }
   | { type: 'cancel_trade'; tradeId: string }
   | { type: 'declare_bankruptcy' }
   | { type: 'resign'; reason?: 'left' | 'bankrupt' }
