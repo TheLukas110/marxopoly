@@ -269,7 +269,7 @@ Bundled worlds:
 | **Civic Gardens** (`standard`) | A miniature town with terracotta roofs, a clock tower, canal bridges, trees, and a fountain. |
 | **Neon Circuit** (`cyber`) | Illuminated towers, elevated connections, tiered spaces, and a suspended data core. |
 | **The High Roller** (`poker`) | A circular felt table, radial property cards, chip towers, a house of cards, and a golden crown. |
-| **Spectrum Festival** (`pride`) | A dimensional rainbow arch, an observation wheel, festival stage, bunting, and colourful stalls. |
+| **Max Gay Ass Pride Board** (`pride`) | A dimensional rainbow arch, an observation wheel, festival stage, bunting, and colourful stalls. |
 | **Block Party** (`dummy`) | Stacked construction blocks, a lattice crane, a suspended load, and miniature trucks. |
 
 The renderer is in `packages/client/src/world/`: `geometry.ts` builds solid primitives,
