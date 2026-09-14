@@ -2,6 +2,9 @@ import { io, type Socket } from 'socket.io-client';
 import { useSyncExternalStore } from 'react';
 import { clearInvitation, invitedRoom } from './invitations.js';
 import type {
+  AccountRequest,
+  AccountResult,
+  SavedTemplate,
   CardInput,
   ChatMessage,
   ClientToServerEvents,
@@ -35,6 +38,9 @@ function writeName(name: string): void {
 }
 
 export interface ClientStore {
+  account: { username: string; templates: SavedTemplate[] } | null;
+  accountBusy: boolean;
+  accountError: string | null;
   publicUrl: string | null;
   shareEnabled: boolean;
   invitedRoomId: string | null;
@@ -55,6 +61,9 @@ export interface ClientStore {
 }
 
 let state: ClientStore = {
+  account: null,
+  accountBusy: false,
+  accountError: null,
   publicUrl: null,
   shareEnabled: false,
   invitedRoomId: invitedRoom(window.location.search),
@@ -108,6 +117,7 @@ export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(SER
 });
 
 socket.on('connect', () => {
+  if (accountToken()) void accountRequest({ action: 'restore', token: accountToken() });
   set({ connected: true });
   socket.emit('lobby:list');
   // Try to walk straight back into whatever table we were sitting at.
@@ -187,11 +197,11 @@ export function dismissInvitation(): void {
   set({ invitedRoomId: null, error: null });
 }
 
-export function createRoom(roomName: string, isPrivate: boolean, settings?: Partial<GameSettings>): void {
+export function createRoom(roomName: string, isPrivate: boolean, settings?: Partial<GameSettings>, templateId?: string): void {
   set({ joining: true, error: null });
   socket.emit(
     'room:create',
-    { name: roomName, playerName: state.playerName || 'Player', isPrivate, settings },
+    { name: roomName, playerName: state.playerName || 'Player', isPrivate, settings, templateId, accountToken: templateId ? accountToken() : undefined },
     (res) => {
       if (!res.ok) set({ error: res.error ?? 'Could not create the room.', joining: false });
     },
@@ -272,3 +282,49 @@ export function removeCard(cardId: string): void {
 export function refreshRooms(): void {
   socket.emit('lobby:list');
 }
+
+const ACCOUNT_KEY = 'marxopoly.account.v1';
+let memoryToken = '';
+let accountEpoch = 0;
+export function accountToken(): string {
+  try { return localStorage.getItem(ACCOUNT_KEY) ?? memoryToken; } catch { return memoryToken; }
+}
+function storeAccountToken(token: string) {
+  memoryToken = token;
+  try { if (token) localStorage.setItem(ACCOUNT_KEY, token); else localStorage.removeItem(ACCOUNT_KEY); } catch { /* session remains usable in memory */ }
+}
+export function accountRequest(request: AccountRequest): Promise<boolean> {
+  if (!socket.connected || state.accountBusy) return Promise.resolve(false);
+  const epoch = accountEpoch;
+  set({ accountBusy: true, accountError: null });
+  return new Promise(resolve => {
+    socket.timeout(30_000).emit('account:request', request, (error: Error | null, result: AccountResult) => {
+      // Another tab may have signed out or switched accounts while this request ran.
+      if (epoch !== accountEpoch) {
+        set({ accountBusy: false });
+        if (accountToken()) void accountRequest({ action: 'restore', token: accountToken() });
+        resolve(false); return;
+      }
+      if (error || !result?.ok) {
+        if (result?.expired) { storeAccountToken(''); set({ account: null }); }
+        set({ accountBusy: false, accountError: error ? 'No response. Reconnect and try again.' : result.error ?? 'Account request failed.' });
+        resolve(false); return;
+      }
+      if (result.token) storeAccountToken(result.token);
+      if (request.action === 'logout') { storeAccountToken(''); set({ account: null }); }
+      else if (result.username) {
+        set({ account: { username: result.username, templates: result.templates ?? [] } });
+        if (!state.playerName) setPlayerName(result.username);
+      }
+      set({ accountBusy: false });
+      resolve(true);
+    });
+  });
+}
+window.addEventListener('storage', event => {
+  if (event.key !== ACCOUNT_KEY && event.key !== null) return;
+  accountEpoch++;
+  memoryToken = '';
+  set({ account: null });
+  if (accountToken()) void accountRequest({ action: 'restore', token: accountToken() });
+});

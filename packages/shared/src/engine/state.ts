@@ -155,6 +155,14 @@ function rebuildDecks(state: GameState): void {
   state.rngState = ledger.state;
 }
 
+/** Apply a server-owned saved customization to a fresh lobby. */
+export function applyTemplate(state: GameState, template: Pick<GameState, 'tileNames' | 'cards'>): GameState {
+  if (state.phase !== 'lobby') return state;
+  const next = { ...state, tileNames: structuredClone(template.tileNames), cards: structuredClone(template.cards), version: state.version + 1 };
+  rebuildDecks(next);
+  return next;
+}
+
 // ---------------------------------------------------------------------------
 // Host customisation (lobby only)
 // ---------------------------------------------------------------------------

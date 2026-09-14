@@ -5,6 +5,7 @@ import Lobby from './components/Lobby.js';
 import GameRoom from './components/GameRoom.js';
 import Toast from './components/Toast.js';
 import ThemeToggle from './components/ThemeToggle.js';
+import AccountPanel from './components/AccountPanel.js';
 
 export default function App() {
   const game = useStore((s) => s.game);
@@ -21,6 +22,7 @@ export default function App() {
   return (
     <div className="app">
       {!connected && <div className="banner">Reconnecting to the server…</div>}
+      <AccountPanel />
       {!roomId || !game ? <Home /> : game.phase === 'lobby' ? <Lobby /> : <GameRoom />}
       <footer className="legal-footer">An independent game. Not affiliated with Hasbro.</footer>
       <ThemeToggle />

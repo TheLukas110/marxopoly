@@ -1,3 +1,10 @@
+.account-panel { margin: 12px auto; max-width: 1200px; }
+.account-panel summary { cursor: pointer; font-weight: 600; }
+.account-panel form { max-width: 540px; display: grid; gap: 12px; margin-top: 16px; }
+.account-templates { list-style: none; padding: 0; }
+.account-templates li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.account-templates strong { overflow-wrap: anywhere; }
+.template-save { display: grid; gap: 10px; padding: 16px 0; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
 /* ================================================================ tokens */
 /* Dark is the default. `:root[data-theme="light"]` (set from JS / the inline
    script in index.html) swaps the palette. The board and its tiles stay light
