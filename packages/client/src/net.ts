@@ -14,40 +14,9 @@ import type {
 
 const SERVER_URL = (import.meta.env.VITE_SERVER_URL ?? '').trim().replace(/\/$/, '');
 
-/**
- * The seat token lives in sessionStorage, NOT localStorage, and this matters:
- * sessionStorage is per browser tab. Refreshing a tab keeps your seat, but
- * opening a second tab gives you a clean slate so you can join the same table
- * as a different player. With localStorage the second tab would silently
- * reconnect as the first tab's player and knock it offline.
- */
-const SESSION_KEY = 'marxopoly.session.v1';
-/** The display name is a convenience, so it is fine to share across tabs. */
+import { readSession, writeSession, readSavedSessions, forgetSession, type StoredSession } from './sessions.js';
+
 const NAME_KEY = 'marxopoly.name.v1';
-
-export interface StoredSession {
-  roomId: string;
-  token: string;
-  playerName: string;
-}
-
-function readSession(): StoredSession | null {
-  try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    return raw ? (JSON.parse(raw) as StoredSession) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeSession(session: StoredSession | null): void {
-  try {
-    if (session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    else sessionStorage.removeItem(SESSION_KEY);
-  } catch {
-    /* storage may be unavailable; the app still works, just without reconnect */
-  }
-}
 
 function readName(): string {
   try {
@@ -82,6 +51,7 @@ export interface ClientStore {
   error: string | null;
   playerName: string;
   joining: boolean;
+  savedSessions: StoredSession[];
 }
 
 let state: ClientStore = {
@@ -100,7 +70,14 @@ let state: ClientStore = {
   error: null,
   playerName: readSession()?.playerName ?? readName(),
   joining: false,
+  savedSessions: readSavedSessions(),
 };
+
+// Preserve seats from tabs opened before persistent recovery was introduced.
+const existingSession = readSession();
+if (existingSession) { writeSession(existingSession); state.savedSessions = readSavedSessions(); }
+
+window.addEventListener('storage', () => set({ savedSessions: readSavedSessions() }));
 
 const listeners = new Set<() => void>();
 
@@ -166,7 +143,7 @@ socket.on('server:info', ({ publicUrl, shareEnabled }) => set(
 socket.on('room:joined', ({ roomId, playerId, token, spectator }) => {
   clearInvitation();
   writeSession({ roomId, token, playerName: state.playerName });
-  set({ roomId, playerId, spectator: !!spectator, error: null, joining: false, invitedRoomId: null });
+  set({ savedSessions: readSavedSessions(), roomId, playerId, spectator: !!spectator, error: null, joining: false, invitedRoomId: null });
 });
 
 socket.on('room:state', ({ state: game, hostId, roomName }) => {
@@ -228,7 +205,22 @@ export function joinRoom(roomId: string): void {
   });
 }
 
+export function rejoinSession(session: StoredSession): void {
+  if (!state.connected || state.joining || state.roomId) return;
+  set({ joining: true, error: null, playerName: session.playerName });
+  socket.emit('room:join', session, (res) => {
+    if (!res.ok) set({ error: res.error ?? 'Could not rejoin.', joining: false });
+  });
+}
+
+export function dismissSavedSession(session: StoredSession): void {
+  forgetSession(session);
+  set({ savedSessions: readSavedSessions() });
+}
+
 export function leaveRoom(): void {
+  const session = readSession();
+  if (session) dismissSavedSession(session);
   socket.emit('room:leave');
   writeSession(null);
   set({ roomId: null, playerId: null, spectator: false, game: null, chat: [], hostId: null });
