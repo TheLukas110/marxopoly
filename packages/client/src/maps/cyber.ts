@@ -1,4 +1,4 @@
-import { districtLayout } from './layout.js';
+import { ringLayout } from './layout.js';
 import type { MapDefinition } from './types.js';
 
 /**
@@ -16,7 +16,7 @@ export const CYBER: MapDefinition = {
   id: 'cyber',
   name: 'Cyber',
   description: 'Retro handheld LCD — four shades of green, scanlines and pixel type.',
-  layout: districtLayout(),
+  layout: ringLayout(),
   vars: {
     '--board-face': '#0f380f',
     '--board-frame': '#0f380f',

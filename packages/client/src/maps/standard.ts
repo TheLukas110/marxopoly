@@ -1,16 +1,16 @@
-import { districtLayout } from './layout.js';
+import { ringLayout } from './layout.js';
 import type { MapDefinition } from './types.js';
 
 /**
- * A light district map on a dark table, with soft rounded tiles.
+ * A classic property ring on a dark table, with soft rounded tiles.
  * These values mirror the defaults in `index.css`,
  * spelled out here so the map reads as a complete, copyable template.
  */
 export const STANDARD: MapDefinition = {
   id: 'standard',
   name: 'Civic Quarter',
-  description: 'A winding route through the Common Ground districts.',
-  layout: districtLayout(),
+  description: 'A classic square board around the Common Ground districts.',
+  layout: ringLayout(),
   vars: {
     '--board-face': '#ffffff',
     '--board-frame': '#b9c8de',

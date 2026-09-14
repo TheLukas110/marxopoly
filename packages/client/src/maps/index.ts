@@ -8,7 +8,7 @@ import type { MapDefinition } from './types.js';
 
 export type { MapDefinition, SpecialTileStyle } from './types.js';
 export type { BoardLayout, Edge } from './layout.js';
-export { districtLayout, tokenSpot } from './layout.js';
+export { ringLayout, tokenSpot } from './layout.js';
 
 /**
  * Every board skin the player can choose from. Add a new map by dropping a

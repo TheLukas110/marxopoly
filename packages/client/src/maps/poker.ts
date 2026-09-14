@@ -1,4 +1,4 @@
-import { districtLayout } from './layout.js';
+import { ringLayout } from './layout.js';
 import type { MapDefinition } from './types.js';
 
 /**
@@ -13,7 +13,7 @@ export const POKER: MapDefinition = {
   id: 'poker',
   name: 'Poker Table',
   description: 'Green baize, a mahogany rail and gold-edged cards.',
-  layout: districtLayout(),
+  layout: ringLayout(),
   vars: {
     '--board-face':
       'radial-gradient(120% 100% at 50% 35%, #1c7a4c 0%, #12613b 45%, #0a4227 100%)',

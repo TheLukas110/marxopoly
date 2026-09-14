@@ -17,17 +17,27 @@ const server = await createServer({
 after(() => server.close());
 const { moveCamera, fitBoardCamera } = await server.ssrLoadModule('/src/board-camera.ts');
 
-test('district route visits every cell once and closes with adjacent steps', async () => {
-  const { districtLayout, tokenSpot } = await server.ssrLoadModule('/src/maps/layout.ts');
-  const layout = districtLayout();
+test('classic ring keeps all 40 spaces on the perimeter with four large corners', async () => {
+  const { ringLayout, tokenSpot } = await server.ssrLoadModule('/src/maps/layout.ts');
+  const layout = ringLayout();
+  assert.deepEqual(layout.centre, { column: '2 / 11', row: '2 / 11' });
   const cells = BOARD.map(tile => layout.position(tile.id));
-  assert.equal(new Set(cells.map(p => `${p.gridRow},${p.gridColumn}`)).size, BOARD.length);
+  assert.equal(new Set(cells.map(p => `${p.gridRow},${p.gridColumn}`)).size, 40);
+  assert.deepEqual([0, 10, 20, 30].map(id => layout.position(id)), [
+    { gridRow: 11, gridColumn: 11 }, { gridRow: 11, gridColumn: 1 },
+    { gridRow: 1, gridColumn: 1 }, { gridRow: 1, gridColumn: 11 },
+  ]);
   for (const tile of BOARD) {
     const a = layout.position(tile.id), b = layout.position(tile.id + 1);
+    assert.ok([1, 11].includes(a.gridRow) || [1, 11].includes(a.gridColumn));
     assert.equal(Math.abs(a.gridRow - b.gridRow) + Math.abs(a.gridColumn - b.gridColumn), 1);
+    assert.equal(layout.edge(tile.id) === 'corner', tile.id % 10 === 0);
     const token = tokenSpot(layout, tile.id);
-    assert.ok(token.x > (a.gridColumn - 1) / 8 * 100 && token.x < a.gridColumn / 8 * 100);
-    assert.ok(token.y > (a.gridRow - 1) / 6.4 * 100 && token.y < a.gridRow / 6.4 * 100);
+    const bounds = track => track === 1 ? [0, 12.5] : track === 11 ? [87.5, 100]
+      : [(1.5 + track - 2) / 12 * 100, (1.5 + track - 1) / 12 * 100];
+    const [left, right] = bounds(a.gridColumn), [top, bottom] = bounds(a.gridRow);
+    assert.ok(token.x > left && token.x < right);
+    assert.ok(token.y > top && token.y < bottom);
   }
 });
 
@@ -137,6 +147,8 @@ test('every skin renders all tiles and eight player pieces inside the shared cam
   try {
     Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: mapStorage });
     const { MAPS, setMapId } = await server.ssrLoadModule('/src/maps/index.ts');
+    const { setBoardView } = await server.ssrLoadModule('/src/board-view.ts');
+    setBoardView('2d');
     const { default: Board } = await server.ssrLoadModule('/src/components/Board.tsx');
     const state = createGame('TEST', Array.from({ length: 8 }, (_, i) => ({ id: `p${i}`, name: `Player ${i}` })), { seed: 123 });
     for (const map of MAPS) {
@@ -146,6 +158,8 @@ test('every skin renders all tiles and eight player pieces inside the shared cam
       assert.equal((html.match(/class="board-token/g) ?? []).length, 8, map.id);
       assert.ok(html.includes('class="board-camera"'), map.id);
       assert.ok(html.includes('selected'), map.id);
+      assert.equal((html.match(/class="tile edge-corner /g) ?? []).length, 4, map.id);
+      assert.ok(html.includes('grid-column:2 / 11;grid-row:2 / 11'), map.id);
       for (const tile of BOARD) assert.ok(html.includes(`title="${tile.name}"`), `${map.id}: full name for ${tile.id}`);
       if (map.wrapClass) assert.ok(html.includes(map.wrapClass), map.id);
     }

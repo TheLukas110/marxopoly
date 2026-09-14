@@ -41,8 +41,10 @@ export default function LogPanel({ state }: Props) {
           : chat.map((m) => (
               <div key={m.id} className="chat-line">
                 <span className="chip xs" style={{ background: m.color }} />
-                <strong>{m.name}</strong>
-                <span>{m.text}</span>
+                <span className="chat-content">
+                  <strong>{m.name}</strong>{' '}
+                  <span>{m.text}</span>
+                </span>
               </div>
             ))}
       </div>

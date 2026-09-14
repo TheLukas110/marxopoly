@@ -26,7 +26,7 @@ export interface MapDefinition {
   name: string;
   /** One-line blurb for the dropdown title / tooltip. */
   description?: string;
-  /** Tile geometry — usually `districtLayout(...)`. */
+  /** Tile geometry — usually `ringLayout(...)`. */
   layout: BoardLayout;
   /**
    * CSS custom properties set on the `.board` element while this map is
