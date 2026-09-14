@@ -1,7 +1,7 @@
 import { BOARD, type GameState } from '@marxopoly/shared';
 import { money } from '../lib.js';
 import { cameraFrame, intersectBox, project, screenRay, type WorldCamera, type Vec3 } from './math.js';
-import { buildPieces, buildWorld, movementPoint, tileOffset } from './scene.js';
+import { buildPieces, buildWorld, movementPoint, piecePoint, tileOffset } from './scene.js';
 import { visibleLabels } from './labels.js';
 
 const VERTEX = `
@@ -43,6 +43,8 @@ export function createWorldRenderer(canvas: HTMLCanvasElement, labels: HTMLCanva
   let state: GameState | undefined;
   let selected: number | null=null, hovered: number | null=null;
   const movements=new Map<string,{from:number;to:number;start:number;duration:number}>();
+  const trails=new Map<string,{from:number;to:number;start:number;duration:number}>();
+  const TRAIL_FADE_MS=1600;
   const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
   function uploadPieces() {
     const positions: Record<string,Vec3>={};
@@ -63,12 +65,55 @@ export function createWorldRenderer(canvas: HTMLCanvasElement, labels: HTMLCanva
         if(previous && previous.position!==player.position && !player.bankrupt && !reducedMotion.matches) {
           const forward=(player.position-previous.position+40)%40;
           movements.set(player.id,{from:previous.position,to:player.position,start:performance.now()+(rolled?700:0),duration:Math.min(forward,40-forward)*115});
+          trails.set(player.id,movements.get(player.id)!);
         }
-        if(player.bankrupt) movements.delete(player.id);
+        if(player.bankrupt) { movements.delete(player.id);trails.delete(player.id); }
       }
     }
     state=nextState; selected=nextSelected; hovered=nextHovered;
+    for(const id of trails.keys()) if(!state?.players.some(p=>p.id===id && !p.bankrupt)) {trails.delete(id);movements.delete(id);}
     uploadPieces();
+  }
+  function drawNavigation() {
+    if(!state) return;
+    const ctx=context!,now=performance.now();
+    ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
+    for(const [id,move] of trails) {
+      const age=now-move.start-move.duration;
+      if(reducedMotion.matches || age>=TRAIL_FADE_MS) {trails.delete(id);continue;}
+      const player=state.players.find(p=>p.id===id);
+      if(!player || now<move.start) continue;
+      const progress=Math.min(1,(now-move.start)/move.duration);
+      ctx.globalAlpha=0.85*(1-Math.max(0,age)/TRAIL_FADE_MS);
+      ctx.beginPath();
+      // Sample the same walk as the piece, preserving bends and elevation.
+      for(let i=0;i<=80;i++) {
+        const point=piecePoint(theme,state,player,movementPoint(theme,move.from,move.to,progress*i/80));
+        const p=project([point[0],point[1]+0.18,point[2]],frame,width,height);
+        if(i===0) ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);
+      }
+      ctx.strokeStyle='#152820';ctx.lineWidth=7;ctx.stroke();
+      ctx.strokeStyle=player.color;ctx.lineWidth=4;ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+    for(const player of state.players) {
+      if(player.bankrupt || (player.seat!==state.turnSeat && !movements.has(player.id))) continue;
+      const move=movements.get(player.id);
+      const progress=move?Math.min(1,Math.max(0,(now-move.start)/move.duration)):1;
+      const point=piecePoint(theme,state,player,move?movementPoint(theme,move.from,move.to,progress):undefined);
+      const next=piecePoint(theme,state,player,move && progress<1?movementPoint(theme,move.from,move.to,Math.min(1,progress+0.04)):world.tiles[(player.position+1)%BOARD.length].center);
+      const p=project([point[0],point[1]+0.8,point[2]],frame,width,height);
+      const ahead=project([next[0],next[1]+0.8,next[2]],frame,width,height);
+      if(p.depth<=0) continue;
+      // Screen-space marker stays legible even behind the skyline or at low zoom.
+      ctx.strokeStyle='#fff8df';ctx.lineWidth=2;ctx.fillStyle=player.color;
+      ctx.beginPath();ctx.arc(p.x,p.y,11,0,Math.PI*2);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(p.x,p.y-16);ctx.lineTo(p.x-7,p.y-28);ctx.lineTo(p.x+7,p.y-28);ctx.closePath();ctx.fill();ctx.stroke();
+      const angle=Math.atan2(ahead.y-p.y,ahead.x-p.x);
+      ctx.save();ctx.translate(p.x,p.y);ctx.rotate(angle);
+      ctx.beginPath();ctx.moveTo(29,0);ctx.lineTo(18,-6);ctx.lineTo(18,6);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
+    }
+    ctx.restore();
   }
   function render(camera: WorldCamera, w: number, h: number, showLabels: boolean) {
     width=Math.max(1,w);height=Math.max(1,h);
@@ -88,7 +133,7 @@ export function createWorldRenderer(canvas: HTMLCanvasElement, labels: HTMLCanva
       gl!.drawArrays(gl!.TRIANGLES,0,count);
     }
     context!.setTransform(ratio,0,0,ratio,0,0);context!.clearRect(0,0,width,height);
-    if(!showLabels) return;
+    if(!showLabels) {drawNavigation();return;}
     const ctx=context!;
     // Measure all boxes before drawing so selected/hovered spaces win collisions.
     const candidates = world.tiles.flatMap(tile => {
@@ -117,6 +162,7 @@ export function createWorldRenderer(canvas: HTMLCanvasElement, labels: HTMLCanva
       ctx.fillStyle=highlighted?'#29352e':'#f2eee3';ctx.fillText(box.line,x,box.y+box.size/2+5);
       if(box.price) { ctx.font=`500 ${box.size-1}px system-ui, sans-serif`;ctx.fillStyle=highlighted?'#4c5446':'#c6d5cc';ctx.fillText(box.price,x,box.y+box.size*1.5+7); }
     }
+    drawNavigation();
   }
   function pick(x: number,y: number) {
     const ray=screenRay(x/width*2-1,1-y/height*2,frame);
@@ -132,5 +178,5 @@ export function createWorldRenderer(canvas: HTMLCanvasElement, labels: HTMLCanva
     }
     return id;
   }
-  return { render,update,pick,isAnimating:()=>movements.size>0,dispose() { gl.deleteBuffer(staticBuffer);gl.deleteBuffer(dynamicBuffer);gl.deleteProgram(program); } };
+  return { render,update,pick,isAnimating:()=>movements.size>0 || trails.size>0,dispose() { gl.deleteBuffer(staticBuffer);gl.deleteBuffer(dynamicBuffer);gl.deleteProgram(program); } };
 }

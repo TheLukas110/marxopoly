@@ -86,6 +86,43 @@ refreshing a tab keeps your seat while a new tab starts fresh and can join as so
 second tab ever reclaims a seat, the older tab is told it was replaced rather than silently going
 dead.
 
+### Local testing checklist
+
+Use this workflow to test the game locally after making a change. No `.env` file is required for
+the default local setup; the server uses port `3001` and accepts the Vite client on port `5173`.
+
+```bash
+# Run once after cloning the repository, or whenever dependencies change.
+corepack enable
+pnpm install
+
+# Build the shared package, then start shared code, server, and client in watch mode.
+pnpm --filter @marxopoly/shared build
+pnpm dev
+```
+
+Open http://localhost:5173 in a browser. Create a table, then open the same address in an
+incognito window or a second browser tab to join with another player. Use the six-character room
+code to verify joining a specific table. Keep `pnpm dev` running while testing; it rebuilds the
+client and server when source files change.
+
+Before handing a change over, run the automated checks from the repository root:
+
+```bash
+pnpm test       # game-engine and client tests
+pnpm typecheck  # TypeScript checks for every package
+pnpm build      # production build, served locally with `pnpm start`
+```
+
+To test the production build locally, stop the development command and run:
+
+```bash
+pnpm start
+```
+
+Then open http://localhost:3001. This serves the built client and the WebSocket server from the
+same address. If `pnpm build` has not been run yet, run it before `pnpm start`.
+
 ### Share a direct ngrok link with remote friends
 
 ```bash

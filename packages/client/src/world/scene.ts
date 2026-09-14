@@ -163,6 +163,15 @@ export function buildWorld(theme: string) {
   return { data:g.data(), tiles };
 }
 
+/** Shared by the solid pieces and their overlay markers, including stacked players. */
+export function piecePoint(theme: string, state: GameState, player: GameState['players'][number], position?: Vec3): Vec3 {
+  const group=state.players.filter(p=>!p.bankrupt && p.position===player.position),index=group.indexOf(player);
+  const tile=worldTile(player.position,theme),[x,y,z]=position ?? tile.center;
+  const cols=Math.min(3,group.length),row=Math.floor(index/cols),rowCount=Math.min(cols,group.length-row*cols);
+  const offsetX=(index%cols-(rowCount-1)/2)*0.44,offsetZ=0.2+(row-(Math.ceil(group.length/cols)-1)/2)*0.33;
+  return [x+offsetX*Math.cos(tile.yaw)+offsetZ*Math.sin(tile.yaw),y,z-offsetX*Math.sin(tile.yaw)+offsetZ*Math.cos(tile.yaw)];
+}
+
 export function buildPieces(theme: string, state?: GameState, selected: number | null = null, hovered: number | null = null, positions: Record<string,Vec3> = {}) {
   const g=new Geometry();
   for(const id of new Set([selected,hovered])) if(id!==null) {
@@ -180,11 +189,7 @@ export function buildPieces(theme: string, state?: GameState, selected: number |
   }
   const active=state.players.filter(p=>!p.bankrupt);
   for(const player of active) {
-    const group=active.filter(p=>p.position===player.position), index=group.indexOf(player);
-    const tile=worldTile(player.position,theme),[tx,y,tz]=positions[player.id] ?? tile.center;
-    const cols=Math.min(3,group.length),row=Math.floor(index/cols), rowCount=Math.min(cols,group.length-row*cols);
-    const offsetX=(index%cols-(rowCount-1)/2)*0.44,offsetZ=0.2+(row-(Math.ceil(group.length/cols)-1)/2)*0.33;
-    const x=tx+offsetX*Math.cos(tile.yaw)+offsetZ*Math.sin(tile.yaw),z=tz-offsetX*Math.sin(tile.yaw)+offsetZ*Math.cos(tile.yaw);
+    const [x,y,z]=piecePoint(theme,state,player,positions[player.id]);
     const c=player.color;
     g.cylinder(x,y+0.08,z,0.21,0.1,'#ecdbc0',16);
     g.cylinder(x,y+0.18,z,0.18,0.36,c,12,0.1);
