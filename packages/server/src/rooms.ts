@@ -3,6 +3,7 @@ import {
   addCard,
   addPlayerToLobby,
   applyAction,
+  applyRuleWorld,
   applySettings,
   createGame,
   currentPlayer,
@@ -10,6 +11,7 @@ import {
   removeCard,
   removePlayerFromLobby,
   renameTile,
+  ruleWorldById,
   sanitizeCardInput,
   type ChatMessage,
   type GameAction,
@@ -105,6 +107,8 @@ export class RoomManager {
       .map((r) => ({
         id: r.id,
         name: r.name,
+        ruleWorldId: r.state.ruleWorld.id,
+        ruleWorldName: r.state.ruleWorld.name,
         playerCount: r.state.players.filter((p) => !p.bankrupt).length,
         maxPlayers: r.state.settings.maxPlayers,
         spectatorCount: r.spectatorSockets.size,
@@ -128,6 +132,7 @@ export class RoomManager {
     playerName: string;
     isPrivate: boolean;
     settings?: Partial<GameSettings>;
+    ruleWorldId?: string;
   }): { room: Room; playerId: string; token: string } {
     if (this.rooms.size >= MAX_ROOMS) {
       throw new Error('The server is at capacity right now. Try again in a few minutes.');
@@ -136,10 +141,12 @@ export class RoomManager {
     while (this.rooms.has(id)) id = shortCode();
     const playerId = randomUUID();
     const token = randomUUID();
+    const selectedWorld = ruleWorldById(opts.ruleWorldId ?? 'standard');
+    if (!selectedWorld) throw new Error(`Unknown rule world "${opts.ruleWorldId}".`);
     const state = createGame(id, [{ id: playerId, name: clean(opts.playerName) }], {
       turnSeconds: config.turnTimeoutSeconds,
       ...opts.settings,
-    });
+    }, selectedWorld);
 
     const room: Room = {
       id,
@@ -281,6 +288,16 @@ export class RoomManager {
     if (room.hostId !== requesterId) return 'Only the host can change the rules.';
     if (room.state.phase !== 'lobby') return 'The rules are locked once the game starts.';
     room.state = applySettings(room.state, settings);
+    this.emit(room);
+    return null;
+  }
+
+  updateRuleWorld(room: Room, requesterId: string, worldId: string): string | null {
+    if (room.hostId !== requesterId) return 'Only the host can change the rule world.';
+    if (room.state.phase !== 'lobby') return 'The rule world is locked once the game starts.';
+    const selected = ruleWorldById(worldId);
+    if (!selected) return `Unknown rule world "${worldId}".`;
+    room.state = applyRuleWorld(room.state, selected);
     this.emit(room);
     return null;
   }

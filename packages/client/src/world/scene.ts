@@ -1,4 +1,4 @@
-import { BOARD, type GameState } from '@marxopoly/shared';
+import { BOARD, type GameState, type Tile } from '@marxopoly/shared';
 import { tileColor } from '../lib.js';
 import { Geometry } from './geometry.js';
 import { worldTheme } from './themes.js';
@@ -9,12 +9,12 @@ export interface WorldTile { id: number; center: Vec3; min: Vec3; max: Vec3; col
 export const RAINBOW = ['#e97479', '#eea45b', '#efcf65', '#73bba0', '#719dd2', '#aa89c9'];
 
 /** Equal-sized spaces around a circular district, with themed elevations. */
-export function worldTile(id: number, theme: string): WorldTile {
+export function worldTile(id: number, theme: string, data: Tile = BOARD[id]!): WorldTile {
   const step = id % 10, angle = Math.PI / 2 + id * Math.PI * 2 / BOARD.length;
   const x = Math.cos(angle) * 10.5, z = Math.sin(angle) * 10.5;
   const y = theme === 'cyber' ? 0.22 + Math.floor(step / 3) * 0.13 : theme === 'dummy' ? 0.22 + (Math.floor(step / 2) % 2) * 0.15 : 0.22;
   const halfWidth=0.73;
-  return { id, center: [x,y,z], min: [x-halfWidth,y-0.22,z-0.8], max: [x+halfWidth,y+0.14,z+0.8], color: tileColor(BOARD[id]) ?? worldTheme(theme).accent, yaw: Math.atan2(x,z) };
+  return { id, center: [x,y,z], min: [x-halfWidth,y-0.22,z-0.8], max: [x+halfWidth,y+0.14,z+0.8], color: tileColor(data) ?? worldTheme(theme).accent, yaw: Math.atan2(x,z) };
 }
 
 export function tileOffset(tile: WorldTile, x: number, y: number, z: number): Vec3 {
@@ -136,19 +136,19 @@ function blocks(g: Geometry) {
   for(const z of [3,5]) { g.box(0,0.4,z,1.6,0.6,0.8,'#e3bf64'); g.ball(-0.5,0.23,z+0.4,0.23,'#394953'); g.ball(0.5,0.23,z+0.4,0.23,'#394953'); }
 }
 
-export function buildWorld(theme: string) {
+export function buildWorld(theme: string, board: readonly Tile[] = BOARD) {
   const g=new Geometry(), palette=worldTheme(theme);
   g.cylinder(0,-0.65,0,12.1,0.7,palette.base,80);
   g.cylinder(0,0.05,0,11.85,0.12,palette.accent,80);
   g.cylinder(0,0.17,0,11.55,0.04,palette.ground,80);
-  const tiles=BOARD.map(tile=>worldTile(tile.id,theme));
+  const tiles=board.map(tile=>worldTile(tile.id,theme,tile));
   for(const tile of tiles) {
     const [x,y,z]=tile.center;
     const width=1.46;
     g.box(x,y-0.1,z,width,0.25,1.68,palette.tile,tile.yaw);
     const marker=tileOffset(tile,0,0.03,-0.57);
     g.cylinder(...marker,0.17,0.06,tile.color,6);
-    const data=BOARD[tile.id];
+    const data=board[tile.id]!;
     if(data.kind==='street') {
       // Small architectural markers leave the property names and pieces clear.
       const bx=x*0.96,bz=z*0.96;

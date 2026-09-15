@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BOARD, tileLabel, type GameState } from '@marxopoly/shared';
+import { tileLabel, type GameState } from '@marxopoly/shared';
 import { removeCard, renameTile } from '../net.js';
 import { describeCardEffect } from '../lib.js';
 import CardEditor from './CardEditor.js';
@@ -52,7 +52,7 @@ export default function CardsPanel({ state, editable, onClose }: Props) {
                   : 'Tile names in this game.'}
               </p>
               <ul className="card-list">
-                {BOARD.filter((t) => t.kind === 'street' || t.kind === 'depot' || t.kind === 'works').map(
+                {state.ruleWorld.board.filter((t) => t.kind === 'street' || t.kind === 'depot' || t.kind === 'works').map(
                   (t) => (
                     <li key={t.id} className="street-row">
                       <span className="card-id">{t.id}</span>
@@ -94,7 +94,7 @@ export default function CardsPanel({ state, editable, onClose }: Props) {
                     <span className="card-id">{c.id}</span>
                     <div className="card-copy">
                       <span className="card-text">{c.text}</span>
-                      <span className="card-effect">{describeCardEffect(c.effect, state.tileNames)}</span>
+                      <span className="card-effect">{describeCardEffect(c.effect, state.tileNames, state.ruleWorld.board)}</span>
                     </div>
                     <code className="card-kind">{c.effect.kind}</code>
                     {editable && (

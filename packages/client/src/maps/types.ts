@@ -11,10 +11,9 @@ export interface SpecialTileStyle {
 }
 
 /**
- * A board skin. Everything here is *appearance only* — the tile data
- * (names, prices, rent, card decks) lives in `@marxopoly/shared` and is
- * shared by every map. Each player picks a map for themselves; it never
- * touches the game state on the server.
+ * A board skin. Everything here is *appearance only*. The authoritative tile
+ * data, prices, decks and rules live in `state.ruleWorld`; each player may
+ * display that shared rule package with a different local skin.
  *
  * To add a map: create a file in this folder that exports a `MapDefinition`
  * and register it in the `MAPS` array in `index.ts`.

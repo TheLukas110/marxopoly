@@ -1,7 +1,7 @@
-import { DEFAULT_CARDS } from '../data/cards.js';
-import { BOARD_SIZE, OWNABLE_TILE_IDS, tileAt } from '../data/board.js';
+import { BOARD } from '../data/board.js';
+import { DEFAULT_RULE_WORLD, DEFAULT_WORLD_SETTINGS } from '../data/worlds.js';
 import { randomSeed, shuffle } from '../rng.js';
-import type { Card, CardInput, Deed, GameSettings, GameState, GameStats, Player } from '../types.js';
+import type { Card, CardInput, Deed, GameSettings, GameState, GameStats, Player, RuleWorld, Tile } from '../types.js';
 
 export const PLAYER_COLORS = [
   '#e11d48',
@@ -14,33 +14,11 @@ export const PLAYER_COLORS = [
   '#65a30d',
 ] as const;
 
-export const TOKENS = [
-  'rocket',
-  'anchor',
-  'lantern',
-  'compass',
-  'kite',
-  'acorn',
-  'bell',
-  'crown',
-] as const;
+export const TOKENS = DEFAULT_RULE_WORLD.tokens;
 
 export const DEFAULT_SETTINGS: GameSettings = {
-  startingCash: 1500,
-  startSalary: 200,
-  doubleOnExactStart: false,
-  auctionsEnabled: true,
-  auctionMode: 'open',
-  plazaPot: false,
-  noRentInHolding: false,
-  evenBuild: true,
-  doubleRentOnFullGroup: true,
-  holdingFine: 50,
-  houseSupply: 32,
-  hotelSupply: 12,
-  turnSeconds: 90,
+  ...DEFAULT_WORLD_SETTINGS,
   seed: 0,
-  maxPlayers: 8,
 };
 
 export function makeSettings(overrides: Partial<GameSettings> = {}): GameSettings {
@@ -68,12 +46,12 @@ export interface NewPlayerInput {
   isBot?: boolean;
 }
 
-export function makePlayer(input: NewPlayerInput, seat: number, startingCash: number): Player {
+export function makePlayer(input: NewPlayerInput, seat: number, startingCash: number, tokens: readonly string[] = TOKENS): Player {
   return {
     id: input.id,
     name: input.name,
     color: PLAYER_COLORS[seat % PLAYER_COLORS.length]!,
-    token: TOKENS[seat % TOKENS.length]!,
+    token: tokens[seat % tokens.length]!,
     cash: startingCash,
     position: 0,
     inHolding: false,
@@ -88,10 +66,12 @@ export function makePlayer(input: NewPlayerInput, seat: number, startingCash: nu
   };
 }
 
-export function emptyDeeds(): Record<number, Deed> {
+export function emptyDeeds(board: readonly Tile[] = BOARD): Record<number, Deed> {
   const deeds: Record<number, Deed> = {};
-  for (const id of OWNABLE_TILE_IDS) {
-    deeds[id] = { tileId: id, ownerId: null, houses: 0, mortgaged: false };
+  for (const tile of board) {
+    if (tile.kind === 'street' || tile.kind === 'depot' || tile.kind === 'works') {
+      deeds[tile.id] = { tileId: tile.id, ownerId: null, houses: 0, mortgaged: false };
+    }
   }
   return deeds;
 }
@@ -108,18 +88,21 @@ export function createGame(
   id: string,
   players: NewPlayerInput[],
   settingsOverrides: Partial<GameSettings> = {},
+  selectedWorld: RuleWorld = DEFAULT_RULE_WORLD,
 ): GameState {
-  const settings = makeSettings(settingsOverrides);
-  const cards: Card[] = DEFAULT_CARDS.map((c) => structuredClone(c) as Card);
+  const ruleWorld = structuredClone(selectedWorld);
+  const settings = makeSettings({ ...ruleWorld.settings, ...settingsOverrides });
+  const cards: Card[] = ruleWorld.cards.map((c) => structuredClone(c) as Card);
   const fortune = shuffle(deckIds(cards, 'fortune'), settings.seed);
   const ledger = shuffle(deckIds(cards, 'ledger'), fortune.state);
 
   return {
     id,
     phase: 'lobby',
+    ruleWorld,
     settings,
-    players: players.map((p, i) => makePlayer(p, i, settings.startingCash)),
-    deeds: emptyDeeds(),
+    players: players.map((p, i) => makePlayer(p, i, settings.startingCash, ruleWorld.tokens)),
+    deeds: emptyDeeds(ruleWorld.board),
     turnSeat: 0,
     dice: null,
     doublesInARow: 0,
@@ -173,10 +156,10 @@ export function applyTemplate(state: GameState, template: Pick<GameState, 'tileN
 /** Rename a board tile. An empty name restores the default. */
 export function renameTile(state: GameState, tileId: number, name: string): GameState {
   if (state.phase !== 'lobby') return state;
-  if (!Number.isInteger(tileId) || tileId < 0 || tileId >= BOARD_SIZE) return state;
+  if (!Number.isInteger(tileId) || tileId < 0 || tileId >= state.ruleWorld.board.length) return state;
   const clean = name.trim().replace(/\s+/g, ' ').slice(0, 28);
   const tileNames = { ...state.tileNames };
-  if (!clean || clean === tileAt(tileId).name) delete tileNames[tileId];
+  if (!clean || clean === state.ruleWorld.board[tileId]?.name) delete tileNames[tileId];
   else tileNames[tileId] = clean;
   return { ...state, tileNames, version: state.version + 1 };
 }
@@ -216,7 +199,7 @@ export function addPlayerToLobby(state: GameState, input: NewPlayerInput): GameS
   const seat = state.players.length;
   return {
     ...state,
-    players: [...state.players, makePlayer(input, seat, state.settings.startingCash)],
+    players: [...state.players, makePlayer(input, seat, state.settings.startingCash, state.ruleWorld.tokens)],
     stats: {
       ...state.stats,
       holdingVisits: { ...state.stats.holdingVisits, [input.id]: 0 },
@@ -234,7 +217,7 @@ export function removePlayerFromLobby(state: GameState, playerId: string): GameS
     // on a bot when the host leaves the lobby. Array.sort is stable, so the
     // relative order within each group is preserved.
     .sort((a, b) => Number(!!a.isBot) - Number(!!b.isBot))
-    .map((p, i) => ({ ...p, seat: i, color: PLAYER_COLORS[i % PLAYER_COLORS.length]!, token: TOKENS[i % TOKENS.length]! }));
+    .map((p, i) => ({ ...p, seat: i, color: PLAYER_COLORS[i % PLAYER_COLORS.length]!, token: state.ruleWorld.tokens[i % state.ruleWorld.tokens.length]! }));
   const keep = new Set(players.map((p) => p.id));
   const prune = (record: Record<string, number>): Record<string, number> =>
     Object.fromEntries(Object.entries(record).filter(([id]) => keep.has(id)));
@@ -259,4 +242,29 @@ export function applySettings(state: GameState, overrides: Partial<GameSettings>
     players: state.players.map((p) => ({ ...p, cash: settings.startingCash })),
     version: state.version + 1,
   };
+}
+
+/** Replace the complete rule package atomically while the room is still a lobby. */
+export function applyRuleWorld(state: GameState, selectedWorld: RuleWorld): GameState {
+  if (state.phase !== 'lobby') return state;
+  const ruleWorld = structuredClone(selectedWorld);
+  const settings = makeSettings({ ...ruleWorld.settings, seed: state.settings.seed });
+  const cards = ruleWorld.cards.map(card => structuredClone(card));
+  const next: GameState = {
+    ...state,
+    ruleWorld,
+    settings,
+    cards,
+    deeds: emptyDeeds(ruleWorld.board),
+    tileNames: {},
+    players: state.players.map((player, index) => ({
+      ...player,
+      cash: settings.startingCash,
+      position: 0,
+      token: ruleWorld.tokens[index % ruleWorld.tokens.length]!,
+    })),
+    version: state.version + 1,
+  };
+  rebuildDecks(next);
+  return next;
 }

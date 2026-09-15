@@ -262,6 +262,38 @@ export interface GameSettings {
   maxPlayers: number;
 }
 
+/** A complete, portable rule package. Optional source fields inherit the
+ * stable standard-world defaults during validation. */
+export interface RuleWorldConfig {
+  id: string;
+  name: string;
+  description?: string;
+  /** Visual world suggested to clients; clients may keep a different local skin. */
+  visualId?: string;
+  board?: readonly Tile[];
+  cards?: readonly Card[];
+  /** Token shape keys assigned in seat order. */
+  tokens?: readonly string[];
+  /** Lobby defaults supplied by this world. The room seed remains server-owned. */
+  settings?: Partial<Omit<GameSettings, 'seed'>>;
+}
+
+/** Validated form carried in the authoritative game state. */
+export interface RuleWorld {
+  id: string;
+  name: string;
+  description: string;
+  visualId: string;
+  board: Tile[];
+  cards: Card[];
+  tokens: string[];
+  settings: Omit<GameSettings, 'seed'>;
+}
+
+export type RuleWorldResult =
+  | { ok: true; value: RuleWorld }
+  | { ok: false; error: string; errors: string[] };
+
 export interface LogEntry {
   id: number;
   at: number;
@@ -300,6 +332,8 @@ export interface DrawnCardState {
 export interface GameState {
   id: string;
   phase: Phase;
+  /** Selected and validated rule package, shared by every client. */
+  ruleWorld: RuleWorld;
   settings: GameSettings;
   players: Player[];
   deeds: Record<number, Deed>;
@@ -382,6 +416,8 @@ export type ApplyResult =
 export interface RoomSummary {
   id: string;
   name: string;
+  ruleWorldId: string;
+  ruleWorldName: string;
   playerCount: number;
   maxPlayers: number;
   /** How many people are currently watching without a seat. */
@@ -445,7 +481,7 @@ export interface ClientToServerEvents {
   'account:request': (request: AccountRequest, ack: (result: AccountResult) => void) => void;
   'lobby:list': () => void;
   'room:create': (
-    payload: { name: string; playerName: string; isPrivate: boolean; settings?: Partial<GameSettings>; accountToken?: string; templateId?: string },
+    payload: { name: string; playerName: string; isPrivate: boolean; settings?: Partial<GameSettings>; ruleWorldId?: string; accountToken?: string; templateId?: string },
     ack: (res: { ok: boolean; roomId?: string; error?: string }) => void,
   ) => void;
   'room:join': (
@@ -456,6 +492,8 @@ export interface ClientToServerEvents {
   'room:action': (action: GameAction, ack?: (res: { ok: boolean; error?: string }) => void) => void;
   'room:chat': (text: string) => void;
   'room:settings': (settings: Partial<GameSettings>) => void;
+  /** Host only, lobby only: replace board, decks, pieces and starting rules atomically. */
+  'room:rule_world': (worldId: string) => void;
   'room:add_bot': () => void;
   'room:kick': (playerId: string) => void;
   /** Host only: configure whether and how many watch-only guests may join. */

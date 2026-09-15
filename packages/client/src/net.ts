@@ -265,6 +265,10 @@ export function updateSettings(settings: Partial<GameSettings>): void {
   socket.emit('room:settings', settings);
 }
 
+export function updateRuleWorld(worldId: string): void {
+  socket.emit('room:rule_world', worldId);
+}
+
 export function addBot(): void {
   socket.emit('room:add_bot');
 }

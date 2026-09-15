@@ -3,7 +3,7 @@ import {
   GROUP_COLORS,
   GROUP_LABELS,
   GROUP_ORDER,
-  GROUP_TILES,
+  groupTileIds,
   ownableTile,
   ownsWholeGroup,
   tileLabel,
@@ -48,7 +48,7 @@ export default function Properties({ state, myId, onSelect, overviewMode = false
       <div className="deeds-groups">
         {GROUPS.map((group) => {
           const color = GROUP_COLORS[group as keyof typeof GROUP_COLORS];
-          const rows = (GROUP_TILES[group] ?? [])
+          const rows = groupTileIds(state, group)
             .map((id) => ({ id, deed: state.deeds[id] }))
             .filter((r) => !showMineOnly || r.deed?.ownerId === myId);
           if (rows.length === 0) return null;
@@ -68,7 +68,7 @@ export default function Properties({ state, myId, onSelect, overviewMode = false
               {rows.map(({ id, deed }) => {
                 const owner = deed?.ownerId ? playerById.get(deed.ownerId) : null;
                 const isMine = !!owner && owner.id === myId;
-                const tile = ownableTile(id)!;
+                const tile = ownableTile(state, id)!;
                 const name = tileLabel(state, id);
                 return (
                   <button

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  BOARD,
   sanitizeCardInput,
   tileLabel,
   type CardEffect,
@@ -145,7 +144,7 @@ export default function CardEditor({ state, onClose }: Props) {
               <label className="field">
                 <span>Destination</span>
                 <select className="input" value={tile} onChange={(e) => setTile(Number(e.target.value))}>
-                  {BOARD.map((t) => (
+                  {state.ruleWorld.board.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.id}. {tileLabel(state, t.id)}
                     </option>
@@ -232,7 +231,7 @@ export default function CardEditor({ state, onClose }: Props) {
           )}
         </div>
 
-        <p className="card-effect editor-preview">{describeCardEffect(effect, state.tileNames)}</p>
+        <p className="card-effect editor-preview">{describeCardEffect(effect, state.tileNames, state.ruleWorld.board)}</p>
         {error && <p className="warn small">{error}</p>}
 
         <button type="submit" className="btn primary full" disabled={!!error}>

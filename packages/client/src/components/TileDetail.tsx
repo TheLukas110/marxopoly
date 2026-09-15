@@ -16,7 +16,7 @@ interface Props {
 }
 
 export default function TileDetail({ state, tileId, onClose }: Props) {
-  const tile = ownableTile(tileId);
+  const tile = ownableTile(state, tileId);
   if (!tile) return null;
   const deed = state.deeds[tileId]!;
   const owner = deed.ownerId ? state.players.find((p) => p.id === deed.ownerId) : null;

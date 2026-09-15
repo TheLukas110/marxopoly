@@ -1,9 +1,5 @@
 import {
-  BOARD,
-  BOARD_SIZE,
   DEPOT_RENT,
-  GROUP_TILES,
-  OWNABLE_TILE_IDS,
   WORKS_MULTIPLIER,
   tileAt,
 } from '../data/board.js';
@@ -28,18 +24,37 @@ export function activePlayers(state: GameState): Player[] {
   return state.players.filter((p) => !p.bankrupt);
 }
 
-export function ownableTile(tileId: number): OwnableTile | null {
-  const tile = tileAt(tileId);
+type BoardState = Pick<GameState, 'ruleWorld'>;
+
+/** Resolve a tile from the authoritative board in a game state. */
+export function gameTileAt(state: BoardState, tileId: number): Tile {
+  const board = state.ruleWorld.board;
+  const tile = board[((tileId % board.length) + board.length) % board.length];
+  if (!tile) throw new Error(`No tile at index ${tileId}`);
+  return tile;
+}
+
+/** Backwards-compatible one-argument form resolves against the standard board. */
+export function ownableTile(tileId: number): OwnableTile | null;
+export function ownableTile(state: BoardState, tileId: number): OwnableTile | null;
+export function ownableTile(stateOrId: BoardState | number, maybeId?: number): OwnableTile | null {
+  const tile = typeof stateOrId === 'number' ? tileAt(stateOrId) : gameTileAt(stateOrId, maybeId!);
   return isOwnable(tile) ? tile : null;
 }
 
 /** A tile's name for display, honouring the host's lobby renames. */
-export function tileLabel(state: Pick<GameState, 'tileNames'>, tileId: number): string {
-  return state.tileNames[tileId] ?? tileAt(tileId).name;
+export function tileLabel(state: Pick<GameState, 'tileNames' | 'ruleWorld'>, tileId: number): string {
+  return state.tileNames[tileId] ?? gameTileAt(state, tileId).name;
+}
+
+export function groupTileIds(state: BoardState, group: string): number[] {
+  return state.ruleWorld.board
+    .filter(tile => (tile.kind === 'street' && tile.group === group) || tile.kind === group)
+    .map(tile => tile.id);
 }
 
 export function ownedTileIds(state: GameState, playerId: string): number[] {
-  return OWNABLE_TILE_IDS.filter((id) => state.deeds[id]?.ownerId === playerId);
+  return state.ruleWorld.board.filter(isOwnable).map(tile => tile.id).filter((id) => state.deeds[id]?.ownerId === playerId);
 }
 
 export function groupOf(tile: Tile): string | null {
@@ -50,16 +65,16 @@ export function groupOf(tile: Tile): string | null {
 }
 
 export function ownsWholeGroup(state: GameState, playerId: string, group: string): boolean {
-  const ids = GROUP_TILES[group] ?? [];
+  const ids = groupTileIds(state, group);
   return ids.length > 0 && ids.every((id) => state.deeds[id]?.ownerId === playerId);
 }
 
 export function countOwnedInGroup(state: GameState, playerId: string, group: string): number {
-  return (GROUP_TILES[group] ?? []).filter((id) => state.deeds[id]?.ownerId === playerId).length;
+  return groupTileIds(state, group).filter((id) => state.deeds[id]?.ownerId === playerId).length;
 }
 
 export function groupHasBuildings(state: GameState, group: string): boolean {
-  return (GROUP_TILES[group] ?? []).some((id) => (state.deeds[id]?.houses ?? 0) > 0);
+  return groupTileIds(state, group).some((id) => (state.deeds[id]?.houses ?? 0) > 0);
 }
 
 export function mortgageValue(tile: OwnableTile): number {
@@ -72,14 +87,15 @@ export function unmortgageCost(tile: OwnableTile): number {
 
 /** Houses (1..4) currently placed on the board. Hotels are counted separately. */
 export function housesInUse(state: GameState): number {
-  return OWNABLE_TILE_IDS.reduce((sum, id) => {
+  return state.ruleWorld.board.filter(isOwnable).reduce((sum, tile) => {
+    const id = tile.id;
     const h = state.deeds[id]?.houses ?? 0;
     return sum + (h === 5 ? 0 : h);
   }, 0);
 }
 
 export function hotelsInUse(state: GameState): number {
-  return OWNABLE_TILE_IDS.reduce((sum, id) => sum + ((state.deeds[id]?.houses ?? 0) === 5 ? 1 : 0), 0);
+  return state.ruleWorld.board.filter(isOwnable).reduce((sum, tile) => sum + ((state.deeds[tile.id]?.houses ?? 0) === 5 ? 1 : 0), 0);
 }
 
 /**
@@ -87,7 +103,7 @@ export function hotelsInUse(state: GameState): number {
  * Returns 0 when the tile is unowned, mortgaged, or owned by the visitor.
  */
 export function rentFor(state: GameState, tileId: number, visitorId: string, diceTotal: number): number {
-  const tile = ownableTile(tileId);
+  const tile = ownableTile(state, tileId);
   const deed = state.deeds[tileId];
   if (!tile || !deed || !deed.ownerId || deed.ownerId === visitorId || deed.mortgaged) return 0;
 
@@ -117,7 +133,7 @@ export interface BuildCheck {
 }
 
 export function canBuild(state: GameState, playerId: string, tileId: number): BuildCheck {
-  const tile = ownableTile(tileId);
+  const tile = ownableTile(state, tileId);
   if (!tile || tile.kind !== 'street') return { ok: false, reason: 'Only streets can be improved.' };
   const deed = state.deeds[tileId];
   if (!deed || deed.ownerId !== playerId) return { ok: false, reason: 'You do not own this street.' };
@@ -125,7 +141,7 @@ export function canBuild(state: GameState, playerId: string, tileId: number): Bu
   if (!ownsWholeGroup(state, playerId, tile.group)) {
     return { ok: false, reason: 'You need the whole colour group first.' };
   }
-  const ids = GROUP_TILES[tile.group] ?? [];
+  const ids = groupTileIds(state, tile.group);
   if (ids.some((id) => state.deeds[id]?.mortgaged)) {
     return { ok: false, reason: 'Lift the mortgage on the rest of the group first.' };
   }
@@ -148,13 +164,13 @@ export function canBuild(state: GameState, playerId: string, tileId: number): Bu
 }
 
 export function canSellBuilding(state: GameState, playerId: string, tileId: number): BuildCheck {
-  const tile = ownableTile(tileId);
+  const tile = ownableTile(state, tileId);
   if (!tile || tile.kind !== 'street') return { ok: false, reason: 'Nothing to sell here.' };
   const deed = state.deeds[tileId];
   if (!deed || deed.ownerId !== playerId) return { ok: false, reason: 'You do not own this street.' };
   if (deed.houses <= 0) return { ok: false, reason: 'No buildings on this street.' };
   if (state.settings.evenBuild) {
-    const ids = GROUP_TILES[tile.group] ?? [];
+    const ids = groupTileIds(state, tile.group);
     const max = Math.max(...ids.map((id) => state.deeds[id]?.houses ?? 0));
     if (deed.houses < max) return { ok: false, reason: 'Sell evenly across the group.' };
   }
@@ -162,7 +178,7 @@ export function canSellBuilding(state: GameState, playerId: string, tileId: numb
 }
 
 export function canMortgage(state: GameState, playerId: string, tileId: number): BuildCheck {
-  const tile = ownableTile(tileId);
+  const tile = ownableTile(state, tileId);
   if (!tile) return { ok: false, reason: 'This tile cannot be mortgaged.' };
   const deed = state.deeds[tileId];
   if (!deed || deed.ownerId !== playerId) return { ok: false, reason: 'You do not own this property.' };
@@ -180,7 +196,7 @@ export function liquidValue(state: GameState, playerId: string): number {
   if (!player) return 0;
   let total = player.cash;
   for (const id of ownedTileIds(state, playerId)) {
-    const tile = ownableTile(id)!;
+    const tile = ownableTile(state, id)!;
     const deed = state.deeds[id]!;
     if (tile.kind === 'street' && deed.houses > 0) {
       total += Math.floor(tile.buildCost / 2) * deed.houses;
@@ -196,7 +212,7 @@ export function netWorth(state: GameState, playerId: string): number {
   if (!player) return 0;
   let total = player.cash;
   for (const id of ownedTileIds(state, playerId)) {
-    const tile = ownableTile(id)!;
+    const tile = ownableTile(state, id)!;
     const deed = state.deeds[id]!;
     total += deed.mortgaged ? mortgageValue(tile) : tile.price;
     if (tile.kind === 'street') total += tile.buildCost * deed.houses;
@@ -204,10 +220,11 @@ export function netWorth(state: GameState, playerId: string): number {
   return total;
 }
 
-export function nextTileOfKind(from: number, kind: 'depot' | 'works'): number {
-  for (let step = 1; step <= BOARD_SIZE; step++) {
-    const id = (from + step) % BOARD_SIZE;
-    if (BOARD[id]?.kind === kind) return id;
+export function nextTileOfKind(state: BoardState, from: number, kind: 'depot' | 'works'): number {
+  const board = state.ruleWorld.board;
+  for (let step = 1; step <= board.length; step++) {
+    const id = (from + step) % board.length;
+    if (board[id]?.kind === kind) return id;
   }
   return from;
 }

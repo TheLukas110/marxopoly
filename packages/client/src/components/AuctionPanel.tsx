@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { tileAt, tileLabel, type GameState } from '@marxopoly/shared';
+import { gameTileAt, tileLabel, type GameState } from '@marxopoly/shared';
 import { send } from '../net.js';
 import { money, secondsLeft, tileColor } from '../lib.js';
 
@@ -23,7 +23,7 @@ export default function AuctionPanel({ state, myId }: Props) {
   }, [auction?.highBid, auction?.tileId, auction?.mode]);
 
   if (!auction) return null;
-  const tile = tileAt(auction.tileId);
+  const tile = gameTileAt(state, auction.tileId);
   const me = state.players.find((p) => p.id === myId);
   const sealed = auction.mode === 'sealed';
   const submitted = !!myId && auction.submittedIds.includes(myId);

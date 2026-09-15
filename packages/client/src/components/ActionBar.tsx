@@ -30,7 +30,7 @@ export default function ActionBar({ state, myId, onManage }: Props) {
   const deadline = state.phase === 'auction' ? state.auction?.deadline ?? null : state.turnDeadline;
   const left = secondsLeft(deadline);
 
-  const landedTile = me ? ownableTile(me.position) : null;
+  const landedTile = me ? ownableTile(state, me.position) : null;
   const debtIsMine = state.debt?.debtorId === myId;
   const pendingCardIsMine = mine && state.phase === 'awaiting_card'
     && state.drawnCard?.status === 'pending' && state.drawnCard.playerId === myId;

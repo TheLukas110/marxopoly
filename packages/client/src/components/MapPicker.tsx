@@ -3,8 +3,7 @@ import { worldTheme } from '../world/themes.js';
 
 /**
  * Lets each player pick their own board skin. The choice is local (stored in
- * this browser) and never leaves the client, so different players at the same
- * table can use different maps.
+ * this browser) and independent of the host's shared rule-world selection.
  */
 export default function MapPicker({ compact = false }: { compact?: boolean }) {
   const mapId = useMapId();
