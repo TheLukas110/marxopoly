@@ -172,7 +172,17 @@
   .mobile-turn-return > span:last-child { margin-left: auto; font-weight: 650; }
   .game[data-mobile-panel="board"] .table-sidebar, .game[data-mobile-panel="board"] .portfolio-sidebar,
   .game[data-mobile-panel="players"] .table-sidebar, .game[data-mobile-panel="players"] .col.centre,
+  .game[data-mobile-panel="properties"] .table-sidebar, .game[data-mobile-panel="properties"] .col.centre,
   .game[data-mobile-panel="table"] .portfolio-sidebar, .game[data-mobile-panel="table"] .col.centre { display: none; }
+  .game[data-mobile-panel="players"] .portfolio-sidebar > .deeds { display: none; }
+  .game[data-mobile-panel="properties"] .portfolio-sidebar > :not(.deeds) { display: none; }
+  .game[data-mobile-panel="properties"] .portfolio-sidebar { gap: 0; }
+  .game[data-mobile-panel="properties"] .deeds-groups { gap: 18px; }
+  .game[data-mobile-panel="properties"] .deed-item { display: grid; grid-template-columns: 5px minmax(0, 1fr) auto; gap: 4px 10px; }
+  .game[data-mobile-panel="properties"] .deed-item-band { grid-row: 1 / 3; }
+  .game[data-mobile-panel="properties"] .deed-item-name { grid-column: 2; }
+  .game[data-mobile-panel="properties"] .deed-item-price { grid-column: 3; grid-row: 1; }
+  .game[data-mobile-panel="properties"] .deed-item-owner { grid-column: 2 / 4; grid-row: 2; max-width: none; }
   .game .table-sidebar > .log { height: 420px; flex: none; }
   .game .compact-invite .row { grid-template-columns: minmax(0, 1fr) auto; }
   .game .player-card { padding: 14px; }

@@ -169,3 +169,26 @@ test('every skin renders all tiles and eight player pieces inside the shared cam
     else delete globalThis.localStorage;
   }
 });
+
+test('mobile property overview renders every full name, owner and price as a keyboard button', async () => {
+  const { default: Properties } = await server.ssrLoadModule('/src/components/Properties.tsx');
+  const state = createGame('MOBILE', [
+    { id: 'owner', name: 'Owner with an exceptionally long display name' },
+    { id: 'guest', name: 'Guest' },
+  ]);
+  state.tileNames[1] = 'A very long custom property name that must remain completely available';
+  state.deeds[1].ownerId = 'owner';
+  const html = renderToStaticMarkup(createElement(Properties, {
+    state, myId: 'guest', overviewMode: true, onSelect() {},
+  }));
+  const ownable = BOARD.filter(tile => 'price' in tile);
+  assert.equal((html.match(/class="deed-item(?: |")/g) ?? []).length, ownable.length);
+  assert.ok(html.includes('All properties'));
+  assert.ok(html.includes(state.tileNames[1]));
+  assert.ok(html.includes('Owner with an exceptionally long display name'));
+  for (const tile of ownable) {
+    assert.ok(html.includes(`Price $${tile.price.toLocaleString('en-US')}.`), tile.name);
+  }
+  assert.equal((html.match(/<button type="button"/g) ?? []).length, ownable.length);
+  assert.equal(html.includes('Mine ('), false, 'overview mode must not hide properties behind the Mine filter');
+});
