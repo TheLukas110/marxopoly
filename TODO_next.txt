@@ -111,6 +111,24 @@
   - Bekannte Grenze: Bei sehr langen Listen ist auf kleinen Geräten vertikales
     Scrollen erforderlich; es werden bewusst keine Namen abgeschnitten.
 
+[x] TASK-005 | TEST | Browser-Regressionen in die CI aufnehmen
+  - Playwright startet einen deterministischen Vite-Teststand und prüft die
+    fünf Karten `standard`, `cyber`, `poker`, `pride` und `dummy` in Chromium.
+  - Die 2D-Matrix umfasst je Karte 296x700, 390x844, 600x800, 800x900 und
+    600x300 Pixel. Sie prüft alle 40 Felder, lange Eigennamen, fünf Hypotheken,
+    acht Figuren, gültige Koordinaten, Brettgrenzen und horizontalen Überlauf.
+  - Für alle fünf Karten wird zusätzlich der 3D-/WebGL-Start einschließlich
+    vollständiger Feldauswahl geprüft.
+  - `.github/workflows/ci.yml` führt Installation, Typecheck, Unit- und
+    Integrationstests, Produktions-Build sowie die 30 Browserfälle aus. Bei
+    Fehlern werden Screenshot, Video, Trace und HTML-Bericht hochgeladen;
+    Testnamen nennen Karte und Ansichtsgröße eindeutig.
+  - Erfolgreiche Prüfungen: `pnpm typecheck`, `pnpm test`, alle 30 lokalen
+    Chromium-Regressionen und `pnpm build`.
+  - Bekannte Grenze: Der erste Lauf auf einem GitHub-hosted Runner erfolgt erst
+    nach dem Push; lokal wurde dieselbe Befehlsfolge mit Chromium erfolgreich
+    ausgeführt.
+
 ==================================================
 ## VALIDATION BASELINE
 
@@ -132,13 +150,6 @@
 
 ==================================================
 ## BACKLOG / SUBTASKS
-
-[ ] TASK-005 | TEST | Browser-Regressionen in die CI aufnehmen
-  - Umfang: fünf Karten, relevante Ansichtsgrößen, lange eigene Namen,
-    Hypotheken und bis zu acht Spielfiguren.
-  - Anforderung: Die bestehenden Browser-Regressionen automatisiert in der CI
-    ausführen und Fehler eindeutig melden.
-  - Test: CI-Testlauf erfolgreich; `pnpm build` muss fehlerfrei durchlaufen.
 
 [ ] TASK-006 | DEPLOYMENT | Geschützten Hosted-Betrieb einrichten und prüfen
   - Frontend: Cloudflare Pages mit `functions/_middleware.js` und
