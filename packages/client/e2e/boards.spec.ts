@@ -1,6 +1,12 @@
 import { expect, test } from '@playwright/test';
 
-const maps = ['standard', 'cyber', 'poker', 'pride', 'dummy'] as const;
+// Keep every selectable board covered here. The expedition maps arrived on
+// main while this branch was in flight, so they need the same responsive and
+// WebGL smoke coverage as the original set.
+const maps = [
+  'standard', 'cyber', 'poker', 'pride', 'dummy',
+  'abyss', 'lunar', 'mycelium', 'oasis', 'confection', 'clockwork',
+] as const;
 const viewports = [
   { label: 'phone-narrow', width: 296, height: 700 },
   { label: 'phone', width: 390, height: 844 },
