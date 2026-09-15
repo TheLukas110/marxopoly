@@ -151,10 +151,9 @@
 ==================================================
 ## BACKLOG / SUBTASKS
 
-[ ] TASK-006 | DEPLOYMENT | Geschützten Hosted-Betrieb einrichten und prüfen
-  - Status: Repository-seitig vorbereitet und lokal geprüft; externes Deployment
-    ist teilweise geprüft, aber mangels Dashboardzugriff und gültiger Zugangsdaten
-    noch nicht als abgeschlossen markiert.
+[x] TASK-006 | DEPLOYMENT | Geschützten Hosted-Betrieb einrichten und prüfen
+  - Status: Umgesetzt und am 15.09.2026 lokal sowie gegen das geschützte
+    Live-Deployment geprüft.
   - Frontend: Cloudflare Pages mit `functions/_middleware.js` und
     `_routes.json`; alle Frontend-Routen einschließlich Assets müssen Basic Auth
     verlangen.
