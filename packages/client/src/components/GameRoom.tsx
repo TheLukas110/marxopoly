@@ -49,6 +49,7 @@ export default function GameRoom() {
   const me = myId ? state.players.find((p) => p.id === myId) : undefined;
   const inProgress = state.phase !== 'lobby' && state.phase !== 'game_over';
   const canReportBankrupt = !!me && !me.bankrupt && inProgress;
+  const canCreateTrade = canReportBankrupt && state.phase !== 'awaiting_card';
   const partners = state.players.filter(p => p.id !== myId && !p.bankrupt);
   const offers = state.trades.filter(t => t.toId === myId || t.fromId === myId);
   const incoming = offers.filter(t => t.toId === myId).length;
@@ -103,7 +104,7 @@ export default function GameRoom() {
         <aside className="col right portfolio-sidebar" aria-label="Players, trades and properties">
           <PlayerList state={state} myId={myId} onTrade={setTradeWith} />
           <section className="panel trade-hub" aria-label="Trades">
-            <div className="panel-heading"><h2><GameIcon name="trade" />Trades{incoming > 0 && <span className="notification-count">{incoming}</span>}</h2><button className="btn small" disabled={!canReportBankrupt || !partners.length} onClick={() => setChoosingTrade(true)}>+ Create</button></div>
+            <div className="panel-heading"><h2><GameIcon name="trade" />Trades{incoming > 0 && <span className="notification-count">{incoming}</span>}</h2><button className="btn small" disabled={!canCreateTrade || !partners.length} onClick={() => setChoosingTrade(true)}>+ Create</button></div>
             {offers.length === 0 ? <p className="muted small">{canReportBankrupt ? 'Make a deal. Complete your next set.' : 'Trade offers appear here when you play.'}</p> : myId && <TradeInbox state={state} myId={myId} />}
           </section>
           {me && <div className="portfolio-summary"><div><span>Your cash</span><strong>{money(me.cash)}</strong></div><div><span>Net worth</span><strong>{money(netWorth(state, me.id))}</strong></div></div>}

@@ -192,3 +192,31 @@ test('mobile property overview renders every full name, owner and price as a key
   assert.equal((html.match(/<button type="button"/g) ?? []).length, ownable.length);
   assert.equal(html.includes('Mine ('), false, 'overview mode must not hide properties behind the Mine filter');
 });
+
+test('pending card is announced with its unresolved state and full text', async () => {
+  const { default: Board } = await server.ssrLoadModule('/src/components/Board.tsx');
+  const { setBoardView } = await server.ssrLoadModule('/src/board-view.ts');
+  const { describeCardEffect } = await server.ssrLoadModule('/src/lib.ts');
+  setBoardView('2d');
+  const state = createGame('CARD', [
+    { id: 'drawer', name: 'Drawer' },
+    { id: 'guest', name: 'Guest' },
+  ], { seed: 17 });
+  const card = state.cards.find(candidate => candidate.deck === 'fortune');
+  assert.ok(card);
+  state.phase = 'awaiting_card';
+  state.drawnCard = {
+    deck: 'fortune', cardId: card.id, playerId: 'drawer', status: 'pending',
+  };
+
+  const html = renderToStaticMarkup(createElement(Board, {
+    state, selected: null, onSelect() {},
+  }));
+  assert.ok(html.includes('role="status"'));
+  assert.ok(html.includes('aria-live="polite"'));
+  assert.ok(html.includes('aria-atomic="true"'));
+  assert.ok(html.includes('Awaiting confirmation'));
+  assert.ok(html.includes('Its effect has not been applied yet.'));
+  assert.ok(html.includes(card.text));
+  assert.equal(describeCardEffect({ kind: 'skip_turn' }), 'Skip your next complete turn.');
+});

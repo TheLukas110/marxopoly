@@ -428,6 +428,10 @@ export class RoomManager {
 
 /** Whichever bot the engine is currently waiting on, if any. */
 function pickBotActor(state: GameState): string | null {
+  if (state.phase === 'awaiting_card') {
+    const player = currentPlayer(state);
+    return player?.isBot && state.drawnCard?.playerId === player.id ? player.id : null;
+  }
   if (state.phase === 'auction' && state.auction) {
     const id = state.auction.activeIds[state.auction.turnIndex];
     const player = state.players.find((p) => p.id === id);

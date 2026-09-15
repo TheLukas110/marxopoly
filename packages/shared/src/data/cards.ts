@@ -202,6 +202,8 @@ export function sanitizeCardEffect(raw: unknown): CardEffect | string {
       return { kind: 'goto_holding' };
     case 'reprieve':
       return { kind: 'reprieve' };
+    case 'skip_turn':
+      return { kind: 'skip_turn' };
     case 'assessment': {
       const perHouse = num(e.perHouse);
       const perHotel = num(e.perHotel);

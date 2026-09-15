@@ -38,6 +38,39 @@ test('rejoining mid-game preserves money, property and player identity', t => {
   assert.equal(room.spectatorSockets.size, 0);
 });
 
+test('reconnect preserves a pending card and only its drawer can resolve it once', t => {
+  const manager = new RoomManager();
+  t.after(() => manager.stop());
+  const { room, playerId, token } = manager.create({
+    roomName: 'Cards', playerName: 'Ada', isPrivate: true, socketId: 'old',
+  });
+  const joined = manager.join(room.id, 'Bob', undefined, 'bob');
+  assert.ok(joined.ok && 'playerId' in joined);
+  if (!joined.ok || !('playerId' in joined)) return;
+
+  const card = room.state.cards.find(candidate => candidate.deck === 'fortune'
+    && candidate.effect.kind === 'cash' && candidate.effect.amount > 0)!;
+  room.state.phase = 'awaiting_card';
+  room.state.turnSeat = room.state.players.find(player => player.id === playerId)!.seat;
+  room.state.hasRolled = true;
+  room.state.dice = [1, 2];
+  room.state.drawnCard = {
+    deck: card.deck, cardId: card.id, playerId, status: 'pending',
+  };
+  const beforeCash = room.state.players.find(player => player.id === playerId)!.cash;
+
+  manager.markDisconnected(room, playerId);
+  const recovered = manager.join(room.id, 'Ada', token, 'new');
+  assert.ok(recovered.ok && 'playerId' in recovered && recovered.playerId === playerId);
+  assert.equal(room.state.drawnCard?.status, 'pending');
+  assert.match(manager.dispatch(room, joined.playerId, { type: 'confirm_card' }) ?? '', /not your card/i);
+  assert.equal(manager.dispatch(room, playerId, { type: 'confirm_card' }), null);
+  assert.equal(room.state.drawnCard?.status, 'resolved');
+  assert.equal(room.state.players.find(player => player.id === playerId)!.cash, beforeCash + card.effect.amount);
+  assert.match(manager.dispatch(room, playerId, { type: 'confirm_card' }) ?? '', /no card waiting/i);
+  assert.equal(room.state.players.find(player => player.id === playerId)!.cash, beforeCash + card.effect.amount);
+});
+
 test('invalid and expired recovery tokens cannot silently create a new player', t => {
   const manager = new RoomManager();
   t.after(() => manager.stop());

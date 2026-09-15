@@ -32,6 +32,8 @@ export default function ActionBar({ state, myId, onManage }: Props) {
 
   const landedTile = me ? ownableTile(me.position) : null;
   const debtIsMine = state.debt?.debtorId === myId;
+  const pendingCardIsMine = mine && state.phase === 'awaiting_card'
+    && state.drawnCard?.status === 'pending' && state.drawnCard.playerId === myId;
 
   return (
     <div className={`actionbar${mine || debtIsMine ? ' mine' : ''}`}>
@@ -44,6 +46,12 @@ export default function ActionBar({ state, myId, onManage }: Props) {
       </div>
 
       <div className="actionbar-buttons">
+        {pendingCardIsMine && (
+          <button className="btn primary big" onClick={() => send({ type: 'confirm_card' })}>
+            Confirm card and apply effect
+          </button>
+        )}
+
         {mine && state.phase === 'pre_roll' && (
           <>
             {me?.inHolding && me.reprieveCards > 0 && (

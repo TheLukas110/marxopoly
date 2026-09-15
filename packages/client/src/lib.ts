@@ -39,6 +39,8 @@ export function phaseLabel(state: GameState, myId: string | null): string {
       return 'Waiting in the lobby';
     case 'pre_roll':
       return mine ? 'Your turn — roll the dice' : `${current?.name ?? '—'} is rolling`;
+    case 'awaiting_card':
+      return mine ? 'Confirm your card to apply its effect' : `${current?.name ?? '—'} is reading a card`;
     case 'awaiting_buy':
       return mine ? state.settings.auctionsEnabled ? 'Buy this property or send it to auction' : 'Buy this property or pass' : `${current?.name ?? '—'} is deciding`;
     case 'auction':
@@ -112,6 +114,8 @@ export function describeCardEffect(
       return 'Go straight to the holding yard — no salary.';
     case 'reprieve':
       return 'Keep a reprieve card to leave the holding yard later.';
+    case 'skip_turn':
+      return 'Skip your next complete turn.';
     case 'assessment':
       return `Pay ${money(effect.perHouse)} per house and ${money(effect.perHotel)} per hotel you own.`;
     default: {

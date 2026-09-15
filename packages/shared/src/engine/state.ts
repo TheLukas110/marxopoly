@@ -77,6 +77,7 @@ export function makePlayer(input: NewPlayerInput, seat: number, startingCash: nu
     inHolding: false,
     holdingTurns: 0,
     reprieveCards: 0,
+    turnsToSkip: 0,
     bankrupt: false,
     connected: true,
     isBot: input.isBot ?? false,

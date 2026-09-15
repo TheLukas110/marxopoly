@@ -109,6 +109,6 @@ export default function WorldBoard({theme,state,selected=null,onSelect,preview=f
     </div>
     {!preview && <div className="world-toolbar"><span id={hintId}>Drag to orbit · Pinch to zoom · Arrow keys to explore</span><label className="world-label-toggle"><input type="checkbox" checked={showLabels} onChange={e=>setShowLabels(e.target.checked)} />Labels</label><select className="world-property-select" aria-label="Inspect a board space" value={selected ?? ''} onChange={e=>{if(e.target.value!=='')onSelect?.(Number(e.target.value));}}><option value="">Inspect a space…</option>{BOARD.map(t=><option key={t.id} value={t.id}>{state?.tileNames[t.id] ?? t.name}{'price' in t?` · ${money(t.price)}`:''}</option>)}</select></div>}
     {preview && <span id={hintId} className="sr-only">Drag to orbit. Use arrow keys to rotate, plus and minus to zoom, or Home to reset.</span>}
-    {!preview && card && <div className={`world-event ${state?.drawnCard?.deck}`} role="status"><span className="eyebrow">{state?.drawnCard?.deck} · Last drawn</span><p>{card.text}</p></div>}
+    {!preview && card && <div className={`world-event ${state?.drawnCard?.deck}${state?.drawnCard?.status==='pending'?' pending':''}`} role="status" aria-live="polite" aria-atomic="true"><span className="eyebrow">{state?.drawnCard?.deck} · {state?.drawnCard?.status==='pending'?'Awaiting confirmation':'Resolved'}</span><p>{card.text}</p>{state?.drawnCard?.status==='pending' && <small>Its effect has not been applied yet.</small>}</div>}
   </div>;
 }

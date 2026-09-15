@@ -65,6 +65,13 @@ export function applyAction(state: GameState, envelope: ActionEnvelope): ApplyRe
 }
 
 function dispatch(g: GameState, playerId: string, action: GameAction, now: number): string | null {
+  if (g.phase === 'awaiting_card'
+    && action.type !== 'confirm_card'
+    && action.type !== 'timeout'
+    && action.type !== 'set_connected'
+    && action.type !== 'resign') {
+    return 'The pending card must be confirmed first.';
+  }
   switch (action.type) {
     case 'set_connected':
       return setConnected(g, action.playerId, action.connected);
@@ -72,6 +79,8 @@ function dispatch(g: GameState, playerId: string, action: GameAction, now: numbe
       return startGame(g, playerId, now);
     case 'roll_dice':
       return doRoll(g, playerId, now);
+    case 'confirm_card':
+      return doConfirmCard(g, playerId, now);
     case 'buy_property':
       return doBuy(g, playerId, now);
     case 'decline_property':
@@ -449,11 +458,32 @@ function drawCard(g: GameState, player: Player, deck: 'fortune' | 'ledger', now:
   const cardId = pile.shift()!;
   const card = g.cards.find((c) => c.id === cardId);
   if (!card) return;
-  g.drawnCard = { deck, cardId };
+  g.drawnCard = { deck, cardId, playerId: player.id, status: 'pending' };
+  g.phase = 'awaiting_card';
+  setDeadline(g, now);
   log(g, 'card', `${player.name} drew: “${card.text}”`, player.id);
   // Reprieve cards leave the deck until they are spent.
   if (card.effect.kind !== 'reprieve') pile.push(cardId);
+}
+
+function doConfirmCard(g: GameState, playerId: string, now: number): string | null {
+  const drawn = g.drawnCard;
+  if (g.phase !== 'awaiting_card' || !drawn || drawn.status !== 'pending') {
+    return 'There is no card waiting for confirmation.';
+  }
+  const player = currentPlayer(g);
+  if (!player || player.id !== playerId || drawn.playerId !== playerId) return 'It is not your card to confirm.';
+  const card = g.cards.find((candidate) => candidate.id === drawn.cardId && candidate.deck === drawn.deck);
+  if (!card) return 'That card is unavailable.';
+
+  // Mark first, then apply. The action is atomic, and a repeated confirmation
+  // is rejected even when the effect opens another decision or debt phase.
+  drawn.status = 'resolved';
+  g.phase = 'post_roll';
+  log(g, 'card', `${player.name} confirmed the ${drawn.deck === 'fortune' ? 'Fortune' : 'Ledger'} card.`, player.id);
   applyCard(g, player, card, now);
+  settleTurn(g, now);
+  return null;
 }
 
 function applyCard(g: GameState, player: Player, card: Card, now: number): void {
@@ -519,6 +549,11 @@ function applyCard(g: GameState, player: Player, card: Card, now: number): void 
     }
     case 'reprieve': {
       player.reprieveCards += 1;
+      return;
+    }
+    case 'skip_turn': {
+      player.turnsToSkip += 1;
+      log(g, 'card', `${player.name} must skip their next turn.`, player.id);
       return;
     }
     case 'assessment': {
@@ -1095,7 +1130,7 @@ function settleTurn(g: GameState, now: number): void {
     g.phase = 'auction';
     return;
   }
-  if (g.phase === 'awaiting_buy') return;
+  if (g.phase === 'awaiting_card' || g.phase === 'awaiting_buy') return;
 
   const player = currentPlayer(g);
   if (!player) {
@@ -1141,8 +1176,16 @@ function advanceTurn(g: GameState, now: number): void {
   g.hasRolled = false;
 
   const seats = remaining.map((p) => p.seat).sort((a, b) => a - b);
-  const next = seats.find((s) => s > g.turnSeat) ?? seats[0]!;
-  g.turnSeat = next;
+  let next = seats.find((s) => s > g.turnSeat) ?? seats[0]!;
+  while (true) {
+    g.turnSeat = next;
+    const candidate = currentPlayer(g);
+    if (!candidate || candidate.turnsToSkip <= 0) break;
+    candidate.turnsToSkip -= 1;
+    log(g, 'system', `${candidate.name} skips this turn.`, candidate.id);
+    recordNetWorth(g);
+    next = seats.find((s) => s > next) ?? seats[0]!;
+  }
   g.phase = 'pre_roll';
   setDeadline(g, now);
   const player = currentPlayer(g);
@@ -1155,6 +1198,12 @@ function advanceTurn(g: GameState, now: number): void {
 
 function doTimeout(g: GameState, now: number): string | null {
   switch (g.phase) {
+    case 'awaiting_card': {
+      const player = currentPlayer(g);
+      if (!player) return null;
+      log(g, 'system', `${player.name} ran out of time and confirms the card automatically.`, player.id);
+      return doConfirmCard(g, player.id, now);
+    }
     case 'pre_roll': {
       const player = currentPlayer(g);
       if (!player) return null;

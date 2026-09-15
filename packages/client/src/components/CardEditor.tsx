@@ -24,6 +24,7 @@ const KINDS: { value: CardEffectKind; label: string }[] = [
   { value: 'advance_nearest', label: 'Advance to the nearest depot / works' },
   { value: 'goto_holding', label: 'Send to the holding yard' },
   { value: 'reprieve', label: 'Grant a reprieve card' },
+  { value: 'skip_turn', label: 'Skip the next complete turn' },
   { value: 'assessment', label: 'Repair bill (per house / hotel)' },
 ];
 
@@ -61,6 +62,8 @@ export default function CardEditor({ state, onClose }: Props) {
         return { kind: 'goto_holding' };
       case 'reprieve':
         return { kind: 'reprieve' };
+      case 'skip_turn':
+        return { kind: 'skip_turn' };
       case 'assessment':
         return { kind, perHouse, perHotel };
     }
@@ -224,7 +227,7 @@ export default function CardEditor({ state, onClose }: Props) {
             </>
           )}
 
-          {(kind === 'goto_holding' || kind === 'reprieve') && (
+          {(kind === 'goto_holding' || kind === 'reprieve' || kind === 'skip_turn') && (
             <p className="muted small">No settings — this effect is all-or-nothing.</p>
           )}
         </div>

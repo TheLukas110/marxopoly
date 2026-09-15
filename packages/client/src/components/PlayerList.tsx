@@ -10,7 +10,8 @@ interface Props {
 export default function PlayerList({ state, myId, onTrade }: Props) {
   const current = state.players.find((p) => p.seat === state.turnSeat && !p.bankrupt);
   // A player who has folded is a spectator now — no trading.
-  const canTrade = !!myId && !state.players.find((p) => p.id === myId)?.bankrupt;
+  const canTrade = !!myId && state.phase !== 'awaiting_card'
+    && !state.players.find((p) => p.id === myId)?.bankrupt;
 
   return (
     <div className="panel players">
@@ -41,6 +42,7 @@ export default function PlayerList({ state, myId, onTrade }: Props) {
               {p.id === current?.id && state.phase !== 'game_over' && <span className="player-turn-label">Playing</span>}
               {p.inHolding && <span className="warn">in holding</span>}
               {p.reprieveCards > 0 && <span>{p.reprieveCards} reprieve</span>}
+              {p.turnsToSkip > 0 && <span className="warn">next turn skipped</span>}
             </div>
             <div className="deed-strip">
               {tiles.map((id) => {
