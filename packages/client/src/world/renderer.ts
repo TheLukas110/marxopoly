@@ -1,4 +1,4 @@
-import { BOARD, type GameState } from '@marxopoly/shared';
+import { BOARD, type GameState, type Tile } from '@marxopoly/shared';
 import { money } from '../lib.js';
 import { cameraFrame, intersectBox, project, screenRay, type WorldCamera, type Vec3 } from './math.js';
 import { buildPieces, buildWorld, movementPoint, piecePoint, tileOffset } from './scene.js';
@@ -19,7 +19,7 @@ void main() {
 }`;
 const FRAGMENT = `precision mediump float; varying vec3 vColor; void main() { gl_FragColor = vec4(vColor, 1.0); }`;
 
-export function createWorldRenderer(canvas: HTMLCanvasElement, labels: HTMLCanvasElement, theme: string) {
+export function createWorldRenderer(canvas: HTMLCanvasElement, labels: HTMLCanvasElement, theme: string, board: readonly Tile[] = BOARD) {
   const gl=canvas.getContext('webgl',{antialias:true,alpha:true,premultipliedAlpha:false});
   if(!gl) throw new Error('3D rendering is unavailable on this device.');
   const context=labels.getContext('2d');
@@ -35,7 +35,7 @@ export function createWorldRenderer(canvas: HTMLCanvasElement, labels: HTMLCanva
   gl.attachShader(program,vertex); gl.attachShader(program,fragment); gl.linkProgram(program);
   gl.deleteShader(vertex); gl.deleteShader(fragment);
   if(!gl.getProgramParameter(program,gl.LINK_STATUS)) { gl.deleteProgram(program); throw new Error('Could not link the 3D shaders.'); }
-  const world=buildWorld(theme), staticBuffer=gl.createBuffer(), dynamicBuffer=gl.createBuffer();
+  const world=buildWorld(theme,board), staticBuffer=gl.createBuffer(), dynamicBuffer=gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER,staticBuffer); gl.bufferData(gl.ARRAY_BUFFER,world.data,gl.STATIC_DRAW);
   const attributes=['aPosition','aNormal','aColor'].map(name=>gl.getAttribLocation(program,name));
   const matrixLocation=gl.getUniformLocation(program,'uMatrix');
@@ -63,8 +63,9 @@ export function createWorldRenderer(canvas: HTMLCanvasElement, labels: HTMLCanva
       for(const player of nextState.players) {
         const previous=state.players.find(p=>p.id===player.id);
         if(previous && previous.position!==player.position && !player.bankrupt && !reducedMotion.matches) {
-          const forward=(player.position-previous.position+40)%40;
-          movements.set(player.id,{from:previous.position,to:player.position,start:performance.now()+(rolled?700:0),duration:Math.min(forward,40-forward)*115});
+          const boardSize=nextState.ruleWorld.board.length;
+          const forward=(player.position-previous.position+boardSize)%boardSize;
+          movements.set(player.id,{from:previous.position,to:player.position,start:performance.now()+(rolled?700:0),duration:Math.min(forward,boardSize-forward)*115});
           trails.set(player.id,movements.get(player.id)!);
         }
         if(player.bankrupt) { movements.delete(player.id);trails.delete(player.id); }
@@ -101,7 +102,7 @@ export function createWorldRenderer(canvas: HTMLCanvasElement, labels: HTMLCanva
       const move=movements.get(player.id);
       const progress=move?Math.min(1,Math.max(0,(now-move.start)/move.duration)):1;
       const point=piecePoint(theme,state,player,move?movementPoint(theme,move.from,move.to,progress):undefined);
-      const next=piecePoint(theme,state,player,move && progress<1?movementPoint(theme,move.from,move.to,Math.min(1,progress+0.04)):world.tiles[(player.position+1)%BOARD.length].center);
+      const next=piecePoint(theme,state,player,move && progress<1?movementPoint(theme,move.from,move.to,Math.min(1,progress+0.04)):world.tiles[(player.position+1)%board.length]!.center);
       const p=project([point[0],point[1]+0.8,point[2]],frame,width,height);
       const ahead=project([next[0],next[1]+0.8,next[2]],frame,width,height);
       if(p.depth<=0) continue;
@@ -137,7 +138,7 @@ export function createWorldRenderer(canvas: HTMLCanvasElement, labels: HTMLCanva
     const ctx=context!;
     // Measure all boxes before drawing so selected/hovered spaces win collisions.
     const candidates = world.tiles.flatMap(tile => {
-      const data=BOARD[tile.id],corner=tile.id%10===0;
+      const data=state?.ruleWorld.board[tile.id] ?? board[tile.id]!,corner=tile.id%10===0;
       const active=tile.id===selected || tile.id===hovered;
       if(width<520 && !corner && !active) return [];
       const p=project(tileOffset(tile,0,0.12,0.62),frame,width,height);

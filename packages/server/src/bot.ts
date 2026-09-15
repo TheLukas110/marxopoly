@@ -1,12 +1,11 @@
 import {
-  BOARD,
-  GROUP_TILES,
   canBuild,
   canMortgage,
   canSellBuilding,
   countOwnedInGroup,
   currentPlayer,
   getPlayer,
+  groupTileIds,
   liquidValue,
   ownableTile,
   ownedTileIds,
@@ -40,7 +39,7 @@ export function decideBotAction(state: GameState, playerId: string, tradeMemory:
     if (sellable !== undefined) return { type: 'sell_building', tileId: sellable };
     const mortgageable = owned
       .filter((id) => canMortgage(state, playerId, id).ok)
-      .sort((a, b) => tilePrice(a) - tilePrice(b))[0];
+      .sort((a, b) => tilePrice(state, a) - tilePrice(state, b))[0];
     if (mortgageable !== undefined) return { type: 'mortgage', tileId: mortgageable };
     if (liquidValue(state, playerId) < state.debt.amount) return { type: 'declare_bankruptcy' };
     return null;
@@ -51,7 +50,7 @@ export function decideBotAction(state: GameState, playerId: string, tradeMemory:
     if (auction.mode === 'sealed') {
       if (!auction.activeIds.includes(playerId) || auction.submittedIds.includes(playerId)) return null;
     } else if (auction.activeIds[auction.turnIndex] !== playerId) return null;
-    const tile = ownableTile(auction.tileId);
+    const tile = ownableTile(state, auction.tileId);
     if (!tile) return { type: 'pass_bid' };
     const ceiling = Math.min(Math.floor(tile.price * (completesGroup(state, playerId, auction.tileId) ? 1.4 : 0.75)), Math.floor(me.cash * 0.6));
     if (auction.mode === 'sealed') {
@@ -66,7 +65,7 @@ export function decideBotAction(state: GameState, playerId: string, tradeMemory:
   if (!current || current.id !== playerId) return null;
 
   if (state.phase === 'awaiting_buy') {
-    const tile = ownableTile(me.position);
+    const tile = ownableTile(state, me.position);
     if (!tile) return { type: 'decline_property' };
     const wants = completesGroup(state, playerId, tile.id) || me.cash - tile.price >= 250;
     return wants ? { type: 'buy_property' } : { type: 'decline_property' };
@@ -96,15 +95,15 @@ export function decideBotAction(state: GameState, playerId: string, tradeMemory:
   return null;
 }
 
-function tilePrice(tileId: number): number {
-  return ownableTile(tileId)?.price ?? 0;
+function tilePrice(state: GameState, tileId: number): number {
+  return ownableTile(state, tileId)?.price ?? 0;
 }
 
 function completesGroup(state: GameState, playerId: string, tileId: number): boolean {
-  const tile = ownableTile(tileId);
+  const tile = ownableTile(state, tileId);
   if (!tile) return false;
   const group = tile.kind === 'street' ? tile.group : tile.kind === 'depot' ? 'depot' : 'works';
-  const ids = GROUP_TILES[group] ?? [];
+  const ids = groupTileIds(state, group);
   const mine = countOwnedInGroup(state, playerId, group);
   return mine + 1 >= ids.length || mine >= 1;
 }
@@ -113,17 +112,18 @@ function completesGroup(state: GameState, playerId: string, tileId: number): boo
 function pickBuild(state: GameState, playerId: string): number | null {
   const me = getPlayer(state, playerId);
   if (!me || me.cash < 400) return null;
-  const candidates = BOARD.filter((t) => t.kind === 'street')
+  const candidates = state.ruleWorld.board.filter((t) => t.kind === 'street')
     .map((t) => t.id)
     .filter((id) => {
-      const tile = ownableTile(id);
+      const tile = ownableTile(state, id);
       if (!tile || tile.kind !== 'street') return false;
       if (!ownsWholeGroup(state, playerId, tile.group)) return false;
       return canBuild(state, playerId, id).ok;
     })
-    .sort((a, b) => (ownableTile(a)?.price ?? 0) - (ownableTile(b)?.price ?? 0));
+    .sort((a, b) => (ownableTile(state, a)?.price ?? 0) - (ownableTile(state, b)?.price ?? 0));
   const choice = candidates[0];
   if (choice === undefined) return null;
-  const cost = ownableTile(choice)?.kind === 'street' ? (ownableTile(choice) as { buildCost: number }).buildCost : 0;
+  const selected = ownableTile(state, choice);
+  const cost = selected?.kind === 'street' ? selected.buildCost : 0;
   return me.cash - cost >= 300 ? choice : null;
 }

@@ -114,9 +114,10 @@ export default function GameRoom() {
         </aside>
       </main>
 
-      {selected !== null && ownableTile(selected) && <GameDialog title="Property details" onClose={() => setSelected(null)}><TileDetail state={state} tileId={selected} onClose={() => setSelected(null)} /></GameDialog>}
+      {selected !== null && ownableTile(state, selected) && <GameDialog title="Property details" onClose={() => setSelected(null)}><TileDetail state={state} tileId={selected} onClose={() => setSelected(null)} /></GameDialog>}
       {choosingTrade && <GameDialog title="Who would you like to trade with?" onClose={() => setChoosingTrade(false)}><p className="muted">Exchange cash, properties or reprieve cards.</p><div className="trade-partners">{partners.map(p => <button className="btn" key={p.id} onClick={() => { setChoosingTrade(false); setTradeWith(p.id); }}><span className="chip sm" style={{ background: p.color }} /><strong>{p.name}</strong><span>{money(p.cash)} →</span></button>)}</div></GameDialog>}
       {showRules && <GameDialog title="Table rules" onClose={() => setShowRules(false)}><p className="muted">The rules chosen for this table. They stay fixed during the game.</p><dl className="table-rules">{[
+        ['Rule world', state.ruleWorld.name],
         ['Starting cash', money(state.settings.startingCash)], ['Salary at Start', money(state.settings.startSalary)],
         ['Turn timer', state.settings.turnSeconds ? `${state.settings.turnSeconds} seconds` : 'No time limit'],
         ['Holding yard fine', money(state.settings.holdingFine)],

@@ -1,4 +1,5 @@
 import {
+  BOARD,
   GROUP_COLORS,
   tileAt,
   type CardEffect,
@@ -78,6 +79,14 @@ export const TOKEN_EMOJI: Record<string, string> = {
   acorn: '🌰',
   bell: '🔔',
   crown: '👑',
+  cog: '⚙️',
+  key: '🔑',
+  spring: '➰',
+  hammer: '🔨',
+  owl: '🦉',
+  train: '🚂',
+  tower: '🏰',
+  star: '⭐',
 };
 
 /** The emoji shown for a player's game piece. */
@@ -90,6 +99,7 @@ export function playerIcon(player: { token: string; name: string }): string {
 export function describeCardEffect(
   effect: CardEffect,
   tileNames?: Record<number, string>,
+  board = BOARD,
 ): string {
   switch (effect.kind) {
     case 'cash':
@@ -101,7 +111,7 @@ export function describeCardEffect(
     case 'pay_each':
       return `Pay ${money(effect.amount)} to every other player.`;
     case 'move_to': {
-      const name = tileNames?.[effect.tile] ?? tileAt(effect.tile).name;
+      const name = tileNames?.[effect.tile] ?? board[effect.tile]?.name ?? tileAt(effect.tile).name;
       return `Move to ${name} (${effect.collectStart ? 'salary if you pass Start' : 'no salary'}).`;
     }
     case 'move_by':

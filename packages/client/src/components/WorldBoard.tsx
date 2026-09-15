@@ -23,7 +23,7 @@ export default function WorldBoard({theme,state,selected=null,onSelect,preview=f
     if(!element || !surface || !overlay) return;
     let renderer: ReturnType<typeof createWorldRenderer>;
     setError(false);setHovered(null);hoveredRef.current=null;
-    try { renderer=createWorldRenderer(surface,overlay,theme);runtime.current=renderer; }
+    try { renderer=createWorldRenderer(surface,overlay,theme,state?.ruleWorld.board);runtime.current=renderer; }
     catch { setError(true); return; }
     let request=0;
     const draw=()=>{ if(!request) request=requestAnimationFrame(()=>{request=0;renderer.render(camera.current,element.clientWidth,element.clientHeight,labelsVisible.current);if(renderer.isAnimating() && !document.hidden)draw();}); };
@@ -79,10 +79,11 @@ export default function WorldBoard({theme,state,selected=null,onSelect,preview=f
       surface.removeEventListener('wheel',wheel);surface.removeEventListener('webglcontextlost',lost);renderer.dispose();
       document.removeEventListener('visibilitychange',draw);
     };
-  },[theme,preview]);
+  },[theme,preview,state?.ruleWorld.id]);
   useEffect(()=>{runtime.current?.update(state,selected,hoveredRef.current);redraw.current();},[state,selected]);
   useEffect(()=>{redraw.current();},[showLabels]);
-  const activeTile=hovered ?? selected,tile=activeTile===null?null:BOARD[activeTile];
+  const board=state?.ruleWorld.board ?? BOARD;
+  const activeTile=hovered ?? selected,tile=activeTile===null?null:board[activeTile];
   const deed=activeTile===null?undefined:state?.deeds[activeTile];
   const owner=deed?.ownerId?state?.players.find(player=>player.id===deed.ownerId):null;
   const current=state?.players.find(p=>p.seat===state.turnSeat && !p.bankrupt);
@@ -100,14 +101,14 @@ export default function WorldBoard({theme,state,selected=null,onSelect,preview=f
           if(event.key==='+' || event.key==='=') adjust(0,1.1);if(event.key==='-') adjust(0,1/1.1);
         }} />
       <canvas ref={labels} className="world-labels" aria-hidden="true" />
-      <div className="world-caption"><span className="live-dot" />{preview?'LIVE WORLD PREVIEW':palette.name}<span className="world-dimension">3D</span></div>
+      <div className="world-caption"><span className="live-dot" />{preview?'LIVE WORLD PREVIEW':`${state?.ruleWorld.name ?? palette.name} · ${palette.name} view`}<span className="world-dimension">3D</span></div>
       {error && <div className="world-error" role="status">{preview ? <><img src={`/worlds/${theme}.png`} alt={`${palette.name} miniature world`} /><span>World preview · Interactive 3D unavailable on this device</span></> : <><strong>Explore the board in 2D</strong><p>This device could not start the 3D scene.</p>{onUnavailable && <button className="btn primary" onClick={onUnavailable}>Use 2D board</button>}</>}</div>}
       {!preview && <div className="world-turn"><Dice dice={state?.dice ?? null} />{current && <span><i style={{background:current.color}} />{current.name}'s turn</span>}{!!state?.settings.plazaPot && state.plazaPot>0 && <small>Plaza pot {money(state.plazaPot)}</small>}</div>}
       {!preview && tile && <div className="world-inspect" aria-live="polite"><span className="eyebrow">{tile.kind}</span><strong>{state?.tileNames[tile.id] ?? tile.name}</strong><span>{'price' in tile?money(tile.price):tile.kind==='tax'?`Pay ${money(tile.amount)}`:'Special space'}{deed?.mortgaged?' · Mortgaged':''}</span>{deed && <span>{owner?.name ?? 'Bank'}{tile.kind==='street'?` · ${deed.houses===5?'Hotel':deed.houses?`${deed.houses} house${deed.houses===1?'':'s'}`:'Unbuilt'}`:''}</span>}</div>}
       <div className="world-orbit"><button type="button" aria-label="Rotate world left" onClick={()=>adjust(-0.2)}>↶</button><button type="button" aria-label="Reset world view" onClick={()=>{camera.current={...defaultCamera};redraw.current();}}>⌂</button><button type="button" aria-label="Rotate world right" onClick={()=>adjust(0.2)}>↷</button><span /><button type="button" aria-label="Zoom out" onClick={()=>adjust(0,1/1.12)}>−</button><button type="button" aria-label="Zoom in" onClick={()=>adjust(0,1.12)}>+</button></div>
       {controls && <div className="world-action-controls">{controls}</div>}
     </div>
-    {!preview && <div className="world-toolbar"><span id={hintId}>Drag to orbit · Pinch to zoom · Arrow keys to explore</span><label className="world-label-toggle"><input type="checkbox" checked={showLabels} onChange={e=>setShowLabels(e.target.checked)} />Labels</label><select className="world-property-select" aria-label="Inspect a board space" value={selected ?? ''} onChange={e=>{if(e.target.value!=='')onSelect?.(Number(e.target.value));}}><option value="">Inspect a space…</option>{BOARD.map(t=><option key={t.id} value={t.id}>{state?.tileNames[t.id] ?? t.name}{'price' in t?` · ${money(t.price)}`:''}</option>)}</select></div>}
+      {!preview && <div className="world-toolbar"><span id={hintId}>Drag to orbit · Pinch to zoom · Arrow keys to explore</span><label className="world-label-toggle"><input type="checkbox" checked={showLabels} onChange={e=>setShowLabels(e.target.checked)} />Labels</label><select className="world-property-select" aria-label="Inspect a board space" value={selected ?? ''} onChange={e=>{if(e.target.value!=='')onSelect?.(Number(e.target.value));}}><option value="">Inspect a space…</option>{board.map(t=><option key={t.id} value={t.id}>{state?.tileNames[t.id] ?? t.name}{'price' in t?` · ${money(t.price)}`:''}</option>)}</select></div>}
     {preview && <span id={hintId} className="sr-only">Drag to orbit. Use arrow keys to rotate, plus and minus to zoom, or Home to reset.</span>}
     {!preview && card && <div className={`world-event ${state?.drawnCard?.deck}${state?.drawnCard?.status==='pending'?' pending':''}`} role="status" aria-live="polite" aria-atomic="true"><span className="eyebrow">{state?.drawnCard?.deck} · {state?.drawnCard?.status==='pending'?'Awaiting confirmation':'Resolved'}</span><p>{card.text}</p>{state?.drawnCard?.status==='pending' && <small>Its effect has not been applied yet.</small>}</div>}
   </div>;

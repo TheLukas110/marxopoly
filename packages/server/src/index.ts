@@ -254,6 +254,7 @@ io.on('connection', (socket) => {
         playerName: payload.playerName,
         isPrivate: !!payload.isPrivate,
         settings: sanitizeSettings(payload.settings),
+        ruleWorldId: typeof payload.ruleWorldId === 'string' ? payload.ruleWorldId : undefined,
       });
       if (template) room.state = applyTemplate(room.state, { tileNames: template.tileNames, cards: template.cards });
       roomsCreatedBy.set(socket.id, (roomsCreatedBy.get(socket.id) ?? 0) + 1);
@@ -343,6 +344,16 @@ io.on('connection', (socket) => {
     const room = manager.get(seat.roomId);
     if (!room) return;
     const error = manager.updateSettings(room, seat.playerId, sanitizeSettings(settings) ?? {});
+    if (error) socket.emit('room:error', { message: error });
+  });
+
+  socket.on('room:rule_world', (worldId) => {
+    if (tooFast(socket)) return;
+    const seat = seats.get(socket.id);
+    if (!seat || seat.spectator) return;
+    const room = manager.get(seat.roomId);
+    if (!room) return;
+    const error = manager.updateRuleWorld(room, seat.playerId, typeof worldId === 'string' ? worldId : '');
     if (error) socket.emit('room:error', { message: error });
   });
 

@@ -1,4 +1,4 @@
-import { netWorth, ownedTileIds, tileAt, tileLabel, type GameState } from '@marxopoly/shared';
+import { gameTileAt, netWorth, ownedTileIds, tileLabel, type GameState } from '@marxopoly/shared';
 import { money, playerIcon, tileColor } from '../lib.js';
 
 interface Props {
@@ -46,7 +46,7 @@ export default function PlayerList({ state, myId, onTrade }: Props) {
             </div>
             <div className="deed-strip">
               {tiles.map((id) => {
-                const tile = tileAt(id);
+                const tile = gameTileAt(state, id);
                 const deed = state.deeds[id]!;
                 return (
                   <span

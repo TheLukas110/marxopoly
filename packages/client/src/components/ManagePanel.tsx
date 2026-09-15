@@ -35,7 +35,7 @@ export default function ManagePanel({ state, myId, onClose }: Props) {
 
         <div className="manage-list">
           {tiles.map((id) => {
-            const tile = ownableTile(id)!;
+            const tile = ownableTile(state, id)!;
             const deed = state.deeds[id]!;
             const build = canBuild(state, myId, id);
             const sell = canSellBuilding(state, myId, id);

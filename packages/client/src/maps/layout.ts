@@ -7,8 +7,7 @@ export type Edge = 'bottom' | 'left' | 'top' | 'right' | 'corner';
 /**
  * The geometry of a board: where every tile sits and how big the ring tracks
  * are. A map supplies one of these so the visual arrangement is swappable
- * without touching the game rules (the tile data in `@marxopoly/shared`
- * stays the single source of truth for names, prices and rent).
+ * without touching the selected rule package in the authoritative game state.
  */
 export interface BoardLayout {
   /** `grid-template-columns` for the `.board` element. */

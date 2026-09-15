@@ -1,5 +1,5 @@
 import {
-  GROUP_TILES, applyAction, getPlayer, groupHasBuildings, groupOf, mortgageValue,
+  applyAction, getPlayer, groupHasBuildings, groupOf, groupTileIds, mortgageValue,
   ownableTile, ownedTileIds, type GameAction, type GameState, type TradeOffer, type TradeSide,
 } from '@marxopoly/shared';
 
@@ -12,13 +12,17 @@ export const createBotTradeMemory = (): BotTradeMemory => ({lastTurn:new Map(),l
 const turnNumber = (state: GameState) => state.stats.netWorthHistory.at(-1)?.turn ?? 0;
 const side = (tileIds: number[] = []): TradeSide => ({cash:0,tileIds,reprieveCards:0});
 const dollars = (value: number) => `$${Math.round(value)}`;
+const worldGroups = (state: GameState): number[][] => {
+  const names = new Set(state.ruleWorld.board.map(groupOf).filter((group): group is string => !!group));
+  return [...names].map(group => groupTileIds(state, group));
+};
 
 function portfolio(state: GameState, ids: Set<number>): number {
   let value=0;
-  for(const group of Object.values(GROUP_TILES)) {
+  for(const group of worldGroups(state)) {
     const owned=group.filter(id=>ids.has(id));
-    const base=owned.reduce((sum,id)=>sum+ownableTile(id)!.price*(state.deeds[id]?.mortgaged?0.45:1),0);
-    const street=ownableTile(group[0]!)?.kind==='street';
+    const base=owned.reduce((sum,id)=>sum+ownableTile(state,id)!.price*(state.deeds[id]?.mortgaged?0.45:1),0);
+    const street=ownableTile(state,group[0]!)?.kind==='street';
     // Breaking a complete street group costs its development potential.
     const bonus=street && owned.length===group.length?0.85:Math.max(0,owned.length-1)*(street?0.15:0.3);
     value+=base*(1+bonus);
@@ -32,7 +36,7 @@ function cardsValue(state: GameState, playerId: string, count: number): number {
 }
 
 function interest(state: GameState, incoming: TradeSide): number {
-  return incoming.tileIds.reduce((sum,id)=>sum+(state.deeds[id]?.mortgaged?Math.ceil(mortgageValue(ownableTile(id)!)*0.1):0),0);
+  return incoming.tileIds.reduce((sum,id)=>sum+(state.deeds[id]?.mortgaged?Math.ceil(mortgageValue(ownableTile(state,id)!)*0.1):0),0);
 }
 
 /** Evaluate the complete portfolio after the swap, not each deed independently. */
@@ -46,7 +50,7 @@ export function assessTrade(state: GameState, playerId: string, give: TradeSide,
     +cardsValue(state,playerId,player.reprieveCards-give.reprieveCards+receive.reprieveCards)-cardsValue(state,playerId,player.reprieveCards);
   const reserve=Math.min(250,player.cash);
   const debt=state.debt?.debtorId===playerId?state.debt.amount:0;
-  const completes=Object.values(GROUP_TILES).some(ids=>ids.every(id=>after.has(id)) && !ids.every(id=>before.has(id)));
+  const completes=worldGroups(state).some(ids=>ids.every(id=>after.has(id)) && !ids.every(id=>before.has(id)));
   return {gain,cashAfter,completes,affordable:cashAfter>=Math.max(reserve,debt)};
 }
 
@@ -105,7 +109,7 @@ export function answerTrade(state: GameState, playerId: string, offer: TradeOffe
 }
 
 function tradable(state: GameState, playerId: string): number[] {
-  return ownedTileIds(state,playerId).filter(id=>!groupHasBuildings(state,groupOf(ownableTile(id)!)!));
+  return ownedTileIds(state,playerId).filter(id=>!groupHasBuildings(state,groupOf(ownableTile(state,id)!)!));
 }
 
 export function proposeBotTrade(state: GameState, playerId: string, memory: BotTradeMemory): GameAction | null {
@@ -134,7 +138,7 @@ export function proposeBotTrade(state: GameState, playerId: string, memory: BotT
       if(value.gain>bestGain) {best=offer;bestGain=value.gain;}
     };
     for(const id of theirs) {
-      const group=GROUP_TILES[groupOf(ownableTile(id)!)!]!;
+      const group=groupTileIds(state,groupOf(ownableTile(state,id)!)!);
       if(!group.some(tileId=>state.deeds[tileId]?.ownerId===playerId)) continue;
       consider(side(),side([id]));
       for(const ownId of mine) consider(side([ownId]),side([id]));

@@ -1,10 +1,5 @@
-import {
-  BOARD_SIZE,
-  GROUP_TILES,
-  HOLDING_TILE,
-  tileAt,
-} from '../data/board.js';
 import { rollDice, shuffle } from '../rng.js';
+import { validateRuleWorld } from '../data/worlds.js';
 import type {
   ActionEnvelope,
   ApplyResult,
@@ -24,7 +19,9 @@ import {
   canSellBuilding,
   currentPlayer,
   getPlayer,
+  gameTileAt,
   groupOf,
+  groupTileIds,
   liquidValue,
   mortgageValue,
   netWorth,
@@ -141,7 +138,7 @@ function money(n: number): string {
 
 /** A tile's display name, honouring the host's rename overrides. */
 function tname(g: GameState, tileId: number): string {
-  return g.tileNames[tileId] ?? tileAt(tileId).name;
+  return g.tileNames[tileId] ?? gameTileAt(g, tileId).name;
 }
 
 function credit(g: GameState, player: Player, amount: number): void {
@@ -199,6 +196,8 @@ function startGame(g: GameState, playerId: string, now: number): string | null {
   if (g.players.length < 2) return 'You need at least two players.';
   const host = g.players[0];
   if (!host || host.id !== playerId) return 'Only the host can start the game.';
+  const worldCheck = validateRuleWorld({ ...g.ruleWorld, cards: g.cards, settings: g.ruleWorld.settings });
+  if (!worldCheck.ok) return worldCheck.error;
 
   g.phase = 'pre_roll';
   g.turnSeat = 0;
@@ -242,7 +241,7 @@ function doRoll(g: GameState, playerId: string, now: number): string | null {
   // Easter egg: on his first lap the player named "SonToes" gets fixed dice so
   // he lands squarely on the two priciest streets. The pips shown always add up
   // to the distance actually travelled, so nothing looks off.
-  const rig = riggedSonToesDice(player);
+  const rig = riggedSonToesDice(g, player);
   if (rig) {
     [a, b] = rig;
     player.sonToesLap = ((player.sonToesLap ?? 0) + 1) as 0 | 1 | 2;
@@ -250,7 +249,8 @@ function doRoll(g: GameState, playerId: string, now: number): string | null {
     // A real roll while the egg is armed only happens when he is still too far
     // for one roll to hit the street exactly. If a big roll would carry him onto
     // or past it anyway, that street is forfeited so the egg keeps advancing.
-    if (player.position + a + b >= SONTOES_STREETS[player.sonToesLap]) {
+    const targets = sonToesStreets(g);
+    if (player.position + a + b >= targets[player.sonToesLap]) {
       player.sonToesLap = (player.sonToesLap + 1) as 0 | 1 | 2;
     }
   }
@@ -308,12 +308,10 @@ function doRoll(g: GameState, playerId: string, now: number): string | null {
   return null;
 }
 
-/** The two priciest streets, in board order. See Player.sonToesLap. */
-const SONTOES_STREETS = [37, 39] as const;
-
 function movePlayerBy(g: GameState, player: Player, steps: number, now: number): void {
-  const target = ((player.position + steps) % BOARD_SIZE + BOARD_SIZE) % BOARD_SIZE;
-  const passedStart = steps > 0 && player.position + steps >= BOARD_SIZE;
+  const boardSize = g.ruleWorld.board.length;
+  const target = ((player.position + steps) % boardSize + boardSize) % boardSize;
+  const passedStart = steps > 0 && player.position + steps >= boardSize;
   moveTo(g, player, target, passedStart, now, steps);
 }
 
@@ -324,11 +322,17 @@ function movePlayerBy(g: GameState, player: Player, steps: number, now: number):
  * because the egg is spent or because the street is still more than one roll
  * (>12) or less than a legal roll (<2) away.
  */
-function riggedSonToesDice(player: Player): [number, number] | null {
+function sonToesStreets(g: GameState): [number, number] {
+  const ids = g.ruleWorld.board.filter(tile => tile.kind === 'street')
+    .sort((a, b) => b.price - a.price).slice(0, 2).map(tile => tile.id).sort((a, b) => a - b);
+  return [ids[0] ?? 37, ids[1] ?? 39];
+}
+
+function riggedSonToesDice(g: GameState, player: Player): [number, number] | null {
   const lap = player.sonToesLap;
   if (lap !== 0 && lap !== 1) return null;
   if (player.inHolding) return null;
-  const dist = SONTOES_STREETS[lap] - player.position;
+  const dist = sonToesStreets(g)[lap] - player.position;
   if (dist < 2 || dist > 12) return null;
   const a = Math.min(6, dist - 1);
   return [a, dist - a];
@@ -343,7 +347,7 @@ function moveTo(
   diceTotalOverride?: number,
 ): void {
   player.position = target;
-  const tile = tileAt(target);
+  const tile = gameTileAt(g, target);
   if (collectStart) {
     credit(g, player, g.settings.startSalary);
     log(g, 'money', `${player.name} passed Start and drew ${money(g.settings.startSalary)}.`, player.id);
@@ -357,7 +361,7 @@ function diceTotal(g: GameState): number {
 }
 
 function sendToHolding(g: GameState, player: Player): void {
-  player.position = HOLDING_TILE;
+  player.position = g.ruleWorld.board.find(tile => tile.kind === 'holding')?.id ?? 10;
   player.inHolding = true;
   player.holdingTurns = 0;
   g.stats.holdingVisits[player.id] = (g.stats.holdingVisits[player.id] ?? 0) + 1;
@@ -374,7 +378,7 @@ function resolveLanding(
   now: number,
   rentMultiplier: number,
 ): void {
-  const tile = tileAt(player.position);
+  const tile = gameTileAt(g, player.position);
 
   if (isOwnable(tile)) {
     const deed = g.deeds[tile.id]!;
@@ -517,14 +521,14 @@ function applyCard(g: GameState, player: Player, card: Card, now: number): void 
       return;
     }
     case 'advance_nearest': {
-      const target = nextTileOfKind(player.position, effect.target);
+      const target = nextTileOfKind(g, player.position, effect.target);
       const passed = target < player.position;
       player.position = target;
       if (passed) {
         credit(g, player, g.settings.startSalary);
         log(g, 'money', `${player.name} passed Start and drew ${money(g.settings.startSalary)}.`, player.id);
       }
-      const tile = tileAt(target);
+      const tile = gameTileAt(g, target);
       log(g, 'move', `${player.name} advanced to ${tname(g, tile.id)}.`, player.id);
       const deed = g.deeds[target]!;
       if (!deed.ownerId) {
@@ -586,7 +590,7 @@ function doBuy(g: GameState, playerId: string, now: number): string | null {
   if (g.phase !== 'awaiting_buy') return 'There is nothing to buy.';
   const player = currentPlayer(g);
   if (!player || player.id !== playerId) return 'It is not your turn.';
-  const tile = ownableTile(player.position);
+  const tile = ownableTile(g, player.position);
   if (!tile) return 'This tile cannot be bought.';
   const deed = g.deeds[tile.id]!;
   if (deed.ownerId) return 'Already owned.';
@@ -604,7 +608,7 @@ function doDecline(g: GameState, playerId: string, now: number): string | null {
   if (g.phase !== 'awaiting_buy') return 'There is nothing to decline.';
   const player = currentPlayer(g);
   if (!player || player.id !== playerId) return 'It is not your turn.';
-  const tile = ownableTile(player.position);
+  const tile = ownableTile(g, player.position);
   if (!tile) return 'Nothing here.';
 
   if (!g.settings.auctionsEnabled) {
@@ -715,7 +719,7 @@ function advanceAuction(g: GameState, now: number, afterPass = false): void {
 
 function finishAuction(g: GameState, now: number): void {
   const auction = g.auction!;
-  const tile = tileAt(auction.tileId);
+  const tile = gameTileAt(g, auction.tileId);
   if (auction.mode === 'sealed') {
     let winningId: string | null = null;
     let winningBid = 0;
@@ -761,7 +765,7 @@ function doBuild(g: GameState, playerId: string, tileId: number, now: number): s
   const deed = g.deeds[tileId]!;
   player.cash -= check.cost!;
   deed.houses += 1;
-  const tile = tileAt(tileId);
+  const tile = gameTileAt(g, tileId);
   log(
     g,
     'build',
@@ -800,7 +804,7 @@ function doMortgage(g: GameState, playerId: string, tileId: number, now: number)
 
 function doUnmortgage(g: GameState, playerId: string, tileId: number, now: number): string | null {
   if (!managementAllowed(g)) return 'You cannot lift a mortgage right now.';
-  const tile = ownableTile(tileId);
+  const tile = ownableTile(g, tileId);
   if (!tile) return 'Not a property.';
   const deed = g.deeds[tileId];
   if (!deed || deed.ownerId !== playerId) return 'You do not own this property.';
@@ -849,14 +853,14 @@ function doUseReprieve(g: GameState, playerId: string, now: number): string | nu
 // Trading
 // ---------------------------------------------------------------------------
 
-function sanitizeSide(side: TradeSide): TradeSide | string {
+function sanitizeSide(g: GameState, side: TradeSide): TradeSide | string {
   if (!side || typeof side !== 'object') return 'Invalid trade contents.';
   if (typeof side.cash !== 'number' || !Number.isFinite(side.cash) ||
       typeof side.reprieveCards !== 'number' || !Number.isFinite(side.reprieveCards) ||
       !Array.isArray(side.tileIds)) {
     return 'Invalid trade contents.';
   }
-  if (side.tileIds.length > 40 || side.tileIds.some((id) => !Number.isInteger(id) || !ownableTile(id))) {
+  if (side.tileIds.length > g.ruleWorld.board.length || side.tileIds.some((id) => !Number.isInteger(id) || !ownableTile(g, id))) {
     return 'Invalid property list.';
   }
   return {
@@ -876,8 +880,8 @@ function validateSide(g: GameState, ownerId: string, side: TradeSide): string | 
     const deed = g.deeds[id];
     if (!deed || deed.ownerId !== ownerId) return `${owner.name} does not own ${tname(g, id)}.`;
     if (deed.houses > 0) return `Sell the buildings on ${tname(g, id)} before trading it.`;
-    const group = groupOf(tileAt(id));
-    if (group && (GROUP_TILES[group] ?? []).some((gid) => (g.deeds[gid]?.houses ?? 0) > 0)) {
+    const group = groupOf(gameTileAt(g, id));
+    if (group && groupTileIds(g, group).some((gid) => (g.deeds[gid]?.houses ?? 0) > 0)) {
       return `Clear the buildings in the ${group} group before trading it.`;
     }
   }
@@ -889,7 +893,7 @@ function mortgageInterestOwed(g: GameState, tileIds: number[]): number {
   let total = 0;
   for (const id of tileIds) {
     const deed = g.deeds[id];
-    const tile = ownableTile(id);
+    const tile = ownableTile(g, id);
     if (deed?.mortgaged && tile) total += Math.ceil(mortgageValue(tile) * 0.1);
   }
   return total;
@@ -909,9 +913,9 @@ function doProposeTrade(
   if (from.bankrupt || to.bankrupt) return 'That player is out of the game.';
   if (g.trades.filter((t) => t.fromId === playerId).length >= 5) return 'Too many open offers.';
 
-  const give = sanitizeSide(action.give);
+  const give = sanitizeSide(g, action.give);
   if (typeof give === 'string') return give;
-  const receive = sanitizeSide(action.receive);
+  const receive = sanitizeSide(g, action.receive);
   if (typeof receive === 'string') return receive;
   if (
     give.cash === 0 && give.tileIds.length === 0 && give.reprieveCards === 0 &&

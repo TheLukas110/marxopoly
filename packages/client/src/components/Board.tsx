@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from 'react';
-import { BOARD, type GameState } from '@marxopoly/shared';
+import type { GameState } from '@marxopoly/shared';
 import BoardTile from './BoardTile.js';
 import TokenLayer from './TokenLayer.js';
 import { money } from '../lib.js';
@@ -40,7 +40,7 @@ export default function Board({ state, selected, onSelect, controls }: Props) {
           gridTemplateRows: layout.gridTemplateRows,
         } as React.CSSProperties}
       >
-        {BOARD.map((tile) => (
+        {state.ruleWorld.board.map((tile) => (
           <BoardTile
             key={tile.id}
             tile={tile}
@@ -58,6 +58,7 @@ export default function Board({ state, selected, onSelect, controls }: Props) {
           className={`board-centre${card ? ' has-card' : ''}`}
           style={{ gridColumn: layout.centre.column, gridRow: layout.centre.row }}
         >
+          <span className="eyebrow">{state.ruleWorld.name}</span>
           {!card && !controls && <div className="brand">
             Marxopoly<span className="dot" />
           </div>}

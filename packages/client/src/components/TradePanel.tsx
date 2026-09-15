@@ -141,7 +141,7 @@ function TradeColumn({
       <div className="trade-tiles">
         {tiles.length === 0 && <p className="muted small">No deeds.</p>}
         {tiles.map((id) => {
-          const tile = ownableTile(id)!;
+          const tile = ownableTile(state, id)!;
           const deed = state.deeds[id]!;
           const picked = side.tileIds.includes(id);
           return (

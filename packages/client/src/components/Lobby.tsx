@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { addBot, kickPlayer, leaveRoom, send, updateSettings, updateSpectatorPolicy, useStore } from '../net.js';
-import type { GameSettings } from '@marxopoly/shared';
+import { addBot, kickPlayer, leaveRoom, send, updateRuleWorld, updateSettings, updateSpectatorPolicy, useStore } from '../net.js';
+import { RULE_WORLDS, type GameSettings } from '@marxopoly/shared';
 import { playerIcon } from '../lib.js';
 import CardsPanel from './CardsPanel.js';
 import MapPicker from './MapPicker.js';
@@ -63,7 +63,7 @@ export default function Lobby() {
       )}
 
       <section className="lobby-worlds" aria-labelledby="lobby-world-title">
-        <div className="section-heading"><div><span className="eyebrow">SET THE SCENE</span><h2 id="lobby-world-title">Where will you make your fortune?</h2></div><p>Choose your own view. Everyone keeps their favourite world.</p></div>
+        <div className="section-heading"><div><span className="eyebrow">YOUR VIEW</span><h2 id="lobby-world-title">Where will you make your fortune?</h2></div><p>This visual skin is local to your browser; the host chooses the shared rules below.</p></div>
         <WorldGallery compact />
       </section>
       <div className="lobby-grid">
@@ -113,6 +113,19 @@ export default function Lobby() {
 
         <section className="card">
           <h2>House rules</h2>
+          <label className="field rule-world-picker">
+            <span>Shared rule world</span>
+            <select
+              className="input"
+              aria-label="Shared rule world"
+              disabled={!isHost}
+              value={game.ruleWorld.id}
+              onChange={(event) => updateRuleWorld(event.target.value)}
+            >
+              {RULE_WORLDS.map(world => <option key={world.id} value={world.id}>{world.name}</option>)}
+            </select>
+            <em>{game.ruleWorld.description || 'Uses the stable standard board, decks, pieces and starting rules.'}</em>
+          </label>
           <div className="settings">
             {TOGGLES.map((t) => (
               <label key={t.key} className="check">
