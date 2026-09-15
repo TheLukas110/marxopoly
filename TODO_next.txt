@@ -186,8 +186,9 @@
     sichere Backend-Defaults und einen Healthcheck. Docker selbst ist auf dem
     Prüfgerät nicht installiert, daher wurde kein Image gebaut.
   - Erfolgreiche lokale Prüfungen: `pnpm build`, `pnpm build:pages` mit einer
-    gültigen HTTPS-Test-Origin, `pnpm typecheck`, `pnpm test` und alle 31
-    Chromium-Tests. Zwei getrennte Browserprofile haben Raumbeitritt,
+    gültigen HTTPS-Test-Origin, `pnpm typecheck`, `pnpm test` und nach Integration
+    der sechs neuen Expedition-Welten alle 67 Chromium-Tests. Zwei getrennte
+    Browserprofile haben Raumbeitritt,
     Spielstart, Chat, Würfeln und Reconnect erfolgreich durchlaufen.
   - Zum Abschluss erforderlich: Cloudflare-Pages-Projekt und Backenddienst
     bereitstellen, reale Preview-/Production-Origins und Backend-HTTPS-URL
