@@ -133,7 +133,7 @@
 ## VALIDATION BASELINE
 
 - TypeScript-Prüfung für Shared, Server und Client war erfolgreich.
-- 43 Engine-Tests waren erfolgreich.
+- 44 Engine-Tests waren erfolgreich.
 - Client-Tests einschließlich Regressionen für Labelkollisionen,
   Bildschirmränder, Auswahlpriorität und vollständige Feldnamen waren
   erfolgreich.
@@ -152,6 +152,9 @@
 ## BACKLOG / SUBTASKS
 
 [ ] TASK-006 | DEPLOYMENT | Geschützten Hosted-Betrieb einrichten und prüfen
+  - Status: Repository-seitig vorbereitet und lokal geprüft; externes Deployment
+    ist mangels Hosting-Zielen, Kontozugriffen, realen Origins und Zugangsdaten
+    blockiert und deshalb noch nicht als abgeschlossen markiert.
   - Frontend: Cloudflare Pages mit `functions/_middleware.js` und
     `_routes.json`; alle Frontend-Routen einschließlich Assets müssen Basic Auth
     verlangen.
@@ -172,6 +175,24 @@
     Browserprofilen inklusive Raumbeitritt, Spielstart, Chat und Reconnect
     prüfen; `pnpm build`, `pnpm build:pages`, `pnpm typecheck` und `pnpm test`
     müssen erfolgreich sein.
+  - Erledigter Teil: Der Pages-Build enthält `_routes.json` für `/*`, die
+    Middleware liefert ohne/falsch authentifiziert `401` und gibt auch direkte
+    Asset-Requests nicht weiter. Korrekte UTF-8-Zugangsdaten funktionieren.
+  - Erledigter Teil: Das Produktionsbackend verweigert fremde oder fehlende
+    Origins, liefert bei `SERVE_CLIENT=0` kein ungeschütztes Frontend aus und
+    dokumentiert `NODE_ENV=production`, `SHARE=0`, genau eine Instanz und HTTPS-
+    beziehungsweise WebSocket-Anforderungen.
+  - Erledigter Teil: Der Container-Build verwendet den Lockfile-Frozen-Modus,
+    sichere Backend-Defaults und einen Healthcheck. Docker selbst ist auf dem
+    Prüfgerät nicht installiert, daher wurde kein Image gebaut.
+  - Erfolgreiche lokale Prüfungen: `pnpm build`, `pnpm build:pages` mit einer
+    gültigen HTTPS-Test-Origin, `pnpm typecheck`, `pnpm test` und alle 31
+    Chromium-Tests. Zwei getrennte Browserprofile haben Raumbeitritt,
+    Spielstart, Chat, Würfeln und Reconnect erfolgreich durchlaufen.
+  - Zum Abschluss erforderlich: Cloudflare-Pages-Projekt und Backenddienst
+    bereitstellen, reale Preview-/Production-Origins und Backend-HTTPS-URL
+    nennen, `BASIC_AUTH_USER`/`BASIC_AUTH_PASS` als verschlüsselte Variablen
+    setzen und die beschriebenen Prüfungen gegen die echten URLs wiederholen.
 
 ==================================================
 ## BEKANNTE GRENZEN
@@ -183,6 +204,9 @@
   Client-Authentifizierung. Für eine strengere Abschottung muss das Hosting-Edge
   des Backends zusätzlich authentifizieren oder den Zugriff anderweitig
   einschränken.
+- Ein Live-Deployment wurde ohne konkrete Hostingkonten und Zugangsdaten nicht
+  vorgenommen. Die lokale Test-Origin `https://backend.example.invalid` dient
+  ausschließlich der Build-Validierung und ist kein erreichbarer Server.
 
 ==================================================
 ## DAUERHAFT AUSGESCHLOSSEN

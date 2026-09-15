@@ -140,7 +140,14 @@ pnpm build
 pnpm typecheck
 pnpm test
 VITE_SERVER_URL=https://YOUR-GAME-SERVER.example.com pnpm build:pages
+pnpm test:browser
 ```
+
+The browser suite uses two isolated Chromium profiles to exercise room join,
+game start, chat, a roll and reconnect against a real local Socket.IO server.
+It also runs the five-map viewport matrix. The Basic Auth unit tests cover the
+middleware with missing, malformed, wrong and correct credentials, including a
+direct asset path.
 
 With a built server running, the integration check supports separate origins:
 

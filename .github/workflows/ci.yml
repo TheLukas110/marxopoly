@@ -38,6 +38,11 @@ jobs:
       - name: Build production bundles
         run: pnpm build
 
+      - name: Build protected Pages bundle
+        run: pnpm build:pages
+        env:
+          VITE_SERVER_URL: https://backend.example.invalid
+
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
 
