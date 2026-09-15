@@ -4,6 +4,7 @@ import { DUMMY } from './dummy.js';
 import { CYBER } from './cyber.js';
 import { POKER } from './poker.js';
 import { PRIDE } from './pride.js';
+import { EXPEDITIONS } from './expeditions.js';
 import type { MapDefinition } from './types.js';
 
 export type { MapDefinition, SpecialTileStyle } from './types.js';
@@ -11,11 +12,11 @@ export type { BoardLayout, Edge } from './layout.js';
 export { ringLayout, tokenSpot } from './layout.js';
 
 /**
- * Every board skin the player can choose from. Add a new map by dropping a
- * file next to this one and listing its export here — nothing else needs to
- * change.
+ * Every board skin the player can choose from. Register the matching palette
+ * and scene in world/, then run `pnpm --filter @marxopoly/client previews`
+ * to include its miniature in the gallery and the WebGL fallback.
  */
-export const MAPS: readonly MapDefinition[] = [STANDARD, CYBER, POKER, PRIDE, DUMMY];
+export const MAPS: readonly MapDefinition[] = [STANDARD, CYBER, POKER, PRIDE, DUMMY, ...EXPEDITIONS];
 
 export const DEFAULT_MAP_ID = STANDARD.id;
 

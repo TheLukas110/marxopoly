@@ -617,6 +617,27 @@ button:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focu
   color: var(--centre-ink); min-width: 0; min-height: 0; overflow: auto;
 }
 .board-centre > * { flex-shrink: 0; }
+
+/* Expedition art stays behind the controls and never intercepts tile input. */
+.map-expedition .board-centre { position: relative; isolation: isolate; }
+.map-expedition .board-centre::before {
+  content: var(--expedition-glyph); position: absolute; inset: 9%; z-index: -1;
+  display: grid; place-items: center; pointer-events: none;
+  color: var(--expedition-accent); opacity: 0.16;
+  font-size: calc(var(--board-unit) * 33); line-height: 1;
+  border: 2px solid var(--expedition-accent);
+}
+.map-expedition .board-centre .centre-turn,
+.map-expedition .board-centre .centre-card { background: var(--board-face); color: var(--tile-ink); }
+.map-lunar .board-centre { --centre-ink: #e1e9ff; --centre-muted: #bdccec; }
+.map-lunar .board-centre::before { border-radius: 50% !important; }
+.map-abyss .board-centre::before { border: 3px double var(--expedition-accent); border-radius: 50% !important; }
+.map-mycelium .board-centre::before { border: 3px dotted var(--expedition-accent); border-radius: 50% !important; }
+.map-oasis .board-centre::before { transform: rotate(45deg); inset: 18%; }
+.map-confection .board { border-style: double; }
+.map-confection .board-centre::before { border: 4px dashed var(--expedition-accent); }
+.map-clockwork .tile-name, .map-lunar .tile-name { font-family: ui-monospace, monospace; }
+.map-clockwork .board-centre::before { border: 4px double var(--expedition-accent); }
 .board-centre.has-card { gap: 10px; padding: 12px; justify-content: safe center; }
 .board-centre.has-card .centre-card { margin-block: auto; }
 .board-centre .brand { color: var(--centre-ink); font-size: clamp(16px, calc(var(--board-unit) * 4), 30px); }

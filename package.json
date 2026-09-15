@@ -15,7 +15,7 @@
     "build:server": "pnpm --filter @marxopoly/shared build && pnpm --filter @marxopoly/server build && pnpm --filter @marxopoly/client build --mode standalone",
     "start": "pnpm --filter @marxopoly/server start",
     "share": "pnpm build && pnpm --filter @marxopoly/server share",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm --filter @marxopoly/shared build && pnpm -r typecheck",
     "test": "pnpm --filter @marxopoly/shared build && pnpm --filter @marxopoly/shared test && pnpm --filter @marxopoly/server test && pnpm --filter @marxopoly/client test",
     "test:browser": "playwright test",
     "clean": "rm -rf packages/*/dist packages/*/tsconfig.tsbuildinfo node_modules packages/*/node_modules"
