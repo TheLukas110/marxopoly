@@ -712,6 +712,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focu
 .deed-item-name { flex: 1; min-width: 0; overflow-wrap: anywhere; display: flex; align-items: center; gap: 7px; font-weight: 650; }
 .deed-item-houses { font-size: 11px; color: var(--accent); font-weight: 750; }
 .deed-item-flag { font-size: 10px; font-weight: 800; letter-spacing: 0.5px; color: var(--warn); }
+.deed-item-price { flex: none; color: var(--text); font-size: 12px; font-weight: 750; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .deed-item-owner { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .deed-item-owner .accent { color: var(--accent-ink); font-weight: 750; }
 

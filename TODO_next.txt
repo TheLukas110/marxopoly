@@ -96,6 +96,21 @@
     zufällige Reconnect-Tokens geschützt. Für stärkeren Backend-Zugriffsschutz
     ist zusätzlich eine Authentifizierung am Hosting-Edge erforderlich.
 
+[x] TASK-004 | UX | Mobile Grundstücksübersicht ergänzen
+  - Die mobile Navigation enthält einen eigenen Bereich `Properties`, der ohne
+    vorgeschalteten Filter alle 28 kaufbaren Grundstücke anzeigt.
+  - Jeder Eintrag zeigt den vollständigen Standard- oder Eigennamen, den
+    Eigentümer beziehungsweise die Bank sowie den Kaufpreis.
+  - Grundstücke bleiben semantische Buttons; Klick, Enter und Leertaste öffnen
+    die vorhandenen vollständigen Grundstücksdetails.
+  - Lange Namen und Eigentümernamen umbrechen unabhängig von den rechtsbündigen
+    Preisen. Spieler- und Handelsansicht bleiben separat erreichbar.
+  - Erfolgreiche Prüfungen: Client-Typecheck, 25 Client-Tests einschließlich
+    Übersicht mit langen Namen, mehreren Eigentümern, allen Preisen und
+    Button-Semantik sowie `pnpm build`.
+  - Bekannte Grenze: Bei sehr langen Listen ist auf kleinen Geräten vertikales
+    Scrollen erforderlich; es werden bewusst keine Namen abgeschnitten.
+
 ==================================================
 ## VALIDATION BASELINE
 
@@ -117,13 +132,6 @@
 
 ==================================================
 ## BACKLOG / SUBTASKS
-
-[ ] TASK-004 | UX | Mobile Grundstücksübersicht ergänzen
-  - Umfang: Smartphone-Ansichten der Spielkarten.
-  - Anforderung: Eine Zoomsteuerung oder eine zuschaltbare Liste aller
-    Grundstücke mit vollständigen Namen, Eigentümern und Preisen anbieten.
-  - Test: Mobile Ansicht mit langen Namen, mehreren Grundstücken und
-    Tastaturbedienung prüfen; `pnpm build` muss fehlerfrei durchlaufen.
 
 [ ] TASK-005 | TEST | Browser-Regressionen in die CI aufnehmen
   - Umfang: fünf Karten, relevante Ansichtsgrößen, lange eigene Namen,

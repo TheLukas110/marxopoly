@@ -4,33 +4,36 @@ import {
   GROUP_LABELS,
   GROUP_ORDER,
   GROUP_TILES,
+  ownableTile,
   ownsWholeGroup,
   tileLabel,
   type GameState,
 } from '@marxopoly/shared';
+import { money } from '../lib.js';
 
 interface Props {
   state: GameState;
   myId: string | null;
   onSelect?: (tileId: number) => void;
+  overviewMode?: boolean;
 }
 
 const GROUPS: readonly string[] = [...GROUP_ORDER, 'depot', 'works'];
 
-export default function Properties({ state, myId, onSelect }: Props) {
+export default function Properties({ state, myId, onSelect, overviewMode = false }: Props) {
   const [mineOnly, setMineOnly] = useState(true);
   const playerById = new Map(state.players.map((p) => [p.id, p]));
   const myCount = myId
     ? Object.values(state.deeds).filter((d) => d.ownerId === myId).length
     : 0;
   // "Mine" is the default, but a spectator with no seat always sees everything.
-  const showMineOnly = mineOnly && !!myId;
+  const showMineOnly = !overviewMode && mineOnly && !!myId;
 
   return (
     <div className="panel deeds">
       <div className="deeds-head">
-        <h2>Properties</h2>
-        {myId && (
+        <h2>{overviewMode ? 'All properties' : 'Properties'}</h2>
+        {myId && !overviewMode && (
           <div className="tabs deeds-tabs">
             <button aria-pressed={!mineOnly} className={mineOnly ? '' : 'active'} onClick={() => setMineOnly(false)}>
               All
@@ -65,17 +68,19 @@ export default function Properties({ state, myId, onSelect }: Props) {
               {rows.map(({ id, deed }) => {
                 const owner = deed?.ownerId ? playerById.get(deed.ownerId) : null;
                 const isMine = !!owner && owner.id === myId;
+                const tile = ownableTile(id)!;
+                const name = tileLabel(state, id);
                 return (
                   <button
                     type="button"
                     onClick={() => onSelect?.(id)}
-                    aria-label={`Inspect ${tileLabel(state, id)}`}
+                    aria-label={`Inspect ${name}. Price ${money(tile.price)}. Owner ${owner?.name ?? 'Bank'}.`}
                     key={id}
                     className={`deed-item${isMine ? ' mine' : ''}${deed?.mortgaged ? ' mtg' : ''}`}
                   >
                     <span className="deed-item-band" style={{ background: color }} />
                     <span className="deed-item-name">
-                      {tileLabel(state, id)}
+                      {name}
                       {deed && deed.houses > 0 && (
                         <span className="deed-item-houses">
                           {deed.houses === 5 ? 'Hotel' : `${deed.houses}h`}
@@ -83,6 +88,7 @@ export default function Properties({ state, myId, onSelect }: Props) {
                       )}
                       {deed?.mortgaged && <span className="deed-item-flag">MTG</span>}
                     </span>
+                    <span className="deed-item-price">{money(tile.price)}</span>
                     <span className="deed-item-owner">
                       {owner ? (
                         <>

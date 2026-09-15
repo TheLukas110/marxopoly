@@ -33,7 +33,7 @@ export default function GameRoom() {
   const [showCards, setShowCards] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [choosingTrade, setChoosingTrade] = useState(false);
-  const [mobilePanel, setMobilePanel] = useState<'board' | 'players' | 'table'>('board');
+  const [mobilePanel, setMobilePanel] = useState<'board' | 'properties' | 'players' | 'table'>('board');
   const [unreadChat, setUnreadChat] = useState(0);
   useEffect(() => {
     if (state.phase === 'auction' || state.phase === 'game_over') {
@@ -77,8 +77,9 @@ export default function GameRoom() {
 
       <nav className="game-mobile-nav" aria-label="Game sections">
         <button aria-pressed={mobilePanel === 'board'} onClick={() => setMobilePanel('board')}><GameIcon name="board" />Board</button>
-        <button aria-pressed={mobilePanel === 'players'} onClick={() => setMobilePanel('players')}><GameIcon name="people" />Players & assets{incoming > 0 && <span className="notification-count">{incoming}</span>}</button>
-        <button aria-pressed={mobilePanel === 'table'} onClick={() => setMobilePanel('table')}><GameIcon name="chat" />Table & chat{unreadChat > 0 && <span className="notification-count">{unreadChat}</span>}</button>
+        <button aria-pressed={mobilePanel === 'properties'} onClick={() => setMobilePanel('properties')}><GameIcon name="trade" />Properties</button>
+        <button aria-pressed={mobilePanel === 'players'} onClick={() => setMobilePanel('players')}><GameIcon name="people" />Players{incoming > 0 && <span className="notification-count">{incoming}</span>}</button>
+        <button aria-pressed={mobilePanel === 'table'} onClick={() => setMobilePanel('table')}><GameIcon name="chat" />Table{unreadChat > 0 && <span className="notification-count">{unreadChat}</span>}</button>
       </nav>
       {needsMyAction && mobilePanel !== 'board' && <button className="mobile-turn-return" onClick={() => setMobilePanel('board')}><span className="live-dot" />{state.debt?.debtorId === myId ? 'Action needed' : 'Your turn'}<span>Return to board →</span></button>}
       <main className="game-main">
@@ -106,7 +107,7 @@ export default function GameRoom() {
             {offers.length === 0 ? <p className="muted small">{canReportBankrupt ? 'Make a deal. Complete your next set.' : 'Trade offers appear here when you play.'}</p> : myId && <TradeInbox state={state} myId={myId} />}
           </section>
           {me && <div className="portfolio-summary"><div><span>Your cash</span><strong>{money(me.cash)}</strong></div><div><span>Net worth</span><strong>{money(netWorth(state, me.id))}</strong></div></div>}
-          <Properties state={state} myId={myId} onSelect={selectTile} />
+          <Properties state={state} myId={myId} onSelect={selectTile} overviewMode={mobilePanel === 'properties'} />
         </aside>
       </main>
 
