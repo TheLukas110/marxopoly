@@ -4,9 +4,7 @@ A real-time, multiplayer property-trading board game for the browser. Create a t
 six-character code, and play with two to eight people — or fill the empty seats with bots.
 
 Marxopoly is a working title for an independently maintained property-trading game.
-It is not affiliated with or endorsed by Hasbro. Its mechanics have substantial similarities
-to Monopoly; renaming and redesigning it do not establish legal clearance.
-See [the IP review and remaining release checks](docs/IP-REVIEW.md).
+It is not affiliated with or endorsed by Hasbro.
 
 For hosting, use [the Cloudflare Pages deployment guide](docs/CLOUDFLARE-PAGES.md):
 `pnpm build:pages`, output `packages/client/dist`, plus a separately hosted Node.js game server.
