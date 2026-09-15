@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { addBot, kickPlayer, leaveRoom, send, updateSettings, useStore } from '../net.js';
+import { addBot, kickPlayer, leaveRoom, send, updateSettings, updateSpectatorPolicy, useStore } from '../net.js';
 import type { GameSettings } from '@marxopoly/shared';
 import { playerIcon } from '../lib.js';
 import CardsPanel from './CardsPanel.js';
@@ -31,6 +31,7 @@ export default function Lobby() {
   const playerId = useStore((s) => s.playerId);
   const roomName = useStore((s) => s.roomName);
   const roomId = useStore((s) => s.roomId);
+  const spectatorPolicy = useStore((s) => s.spectatorPolicy);
   const isHost = hostId === playerId;
   const [showCards, setShowCards] = useState(false);
 
@@ -159,6 +160,34 @@ export default function Lobby() {
                 />
               </label>
             ))}
+          </div>
+          <h3 className="settings-subhead">Spectators</h3>
+          <div className="settings">
+            <label className="check">
+              <input
+                type="checkbox"
+                disabled={!isHost}
+                checked={spectatorPolicy.accepting}
+                onChange={(e) => updateSpectatorPolicy({ accepting: e.target.checked })}
+              />
+              <span>
+                <strong>Allow spectators</strong>
+                <em>The host can close and reopen watch-only access during the game.</em>
+              </span>
+            </label>
+            <label className="field">
+              <span>Maximum spectators</span>
+              <input
+                className="input"
+                type="number"
+                disabled={!isHost}
+                min={0}
+                max={100}
+                step={1}
+                value={spectatorPolicy.maxSpectators}
+                onChange={(e) => updateSpectatorPolicy({ maxSpectators: Number(e.target.value) })}
+              />
+            </label>
           </div>
         </section>
       </div>

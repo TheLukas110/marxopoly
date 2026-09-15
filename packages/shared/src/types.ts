@@ -386,6 +386,10 @@ export interface RoomSummary {
   maxPlayers: number;
   /** How many people are currently watching without a seat. */
   spectatorCount: number;
+  /** Connected plus briefly reserved spectator sessions, used for capacity. */
+  spectatorReservedCount: number;
+  spectatorLimit: number;
+  spectatorOpen: boolean;
   phase: Phase;
   isPrivate: boolean;
   createdAt: number;
@@ -400,9 +404,30 @@ export interface ChatMessage {
   at: number;
 }
 
+export interface SpectatorInfo {
+  id: string;
+  name: string;
+  connected: boolean;
+}
+
+export interface SpectatorPolicy {
+  /** Reserved and connected watch-only sessions allowed in the room. */
+  maxSpectators: number;
+  /** Whether new spectators may join. Existing spectators may reconnect. */
+  accepting: boolean;
+}
+
+export interface RoomStatePayload {
+  state: GameState;
+  hostId: string;
+  roomName: string;
+  spectators: SpectatorInfo[];
+  spectatorPolicy: SpectatorPolicy;
+}
+
 export interface ServerToClientEvents {
   'server:info': (payload: { publicUrl: string | null; shareEnabled: boolean }) => void;
-  'room:state': (payload: { state: GameState; hostId: string; roomName: string }) => void;
+  'room:state': (payload: RoomStatePayload) => void;
   'room:list': (rooms: RoomSummary[]) => void;
   'room:joined': (payload: {
     roomId: string;
@@ -433,6 +458,10 @@ export interface ClientToServerEvents {
   'room:settings': (settings: Partial<GameSettings>) => void;
   'room:add_bot': () => void;
   'room:kick': (playerId: string) => void;
+  /** Host only: configure whether and how many watch-only guests may join. */
+  'room:spectator_settings': (settings: Partial<SpectatorPolicy>) => void;
+  /** Host only: remove a watch-only guest without affecting any player seat. */
+  'room:kick_spectator': (spectatorId: string) => void;
   /** Host only, lobby only: rename a board tile (empty string clears the override). */
   'room:rename_tile': (payload: { tileId: number; name: string }) => void;
   /** Host only, lobby only: append a new special card. */

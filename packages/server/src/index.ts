@@ -10,8 +10,9 @@ import type {
   ClientToServerEvents,
   GameAction,
   GameSettings,
-  GameState,
+  RoomStatePayload,
   ServerToClientEvents,
+  SpectatorPolicy,
 } from '@marxopoly/shared';
 import { config } from './config.js';
 import { RoomManager, type Room } from './rooms.js';
@@ -115,8 +116,14 @@ const seats = new Map<string, { roomId: string; playerId: string; spectator?: bo
  * The client never needs the RNG or the undrawn deck order — sending them lets
  * anyone predict every future roll and card. Strip them from every broadcast.
  */
-function roomStatePayload(room: Room, viewerPlayerId?: string): { state: GameState; hostId: string; roomName: string } {
-  return { state: publicState(room.state, viewerPlayerId), hostId: room.hostId, roomName: room.name };
+function roomStatePayload(room: Room, viewerPlayerId?: string): RoomStatePayload {
+  return {
+    state: publicState(room.state, viewerPlayerId),
+    hostId: room.hostId,
+    roomName: room.name,
+    spectators: [...room.spectators.values()].map(({ id, name, connected }) => ({ id, name, connected })),
+    spectatorPolicy: { ...room.spectatorPolicy },
+  };
 }
 
 // Coalesce lobby-list broadcasts: a burst of room changes produces one emit.
@@ -276,7 +283,13 @@ io.on('connection', (socket) => {
         return;
       }
       if ('spectator' in result) {
-        seatSpectator(socket, result.room);
+        if (result.displacedSocketId) {
+          const stale = io.sockets.sockets.get(result.displacedSocketId);
+          seats.delete(result.displacedSocketId);
+          stale?.emit('room:left', { reason: 'You opened this table in another tab.' });
+          stale?.leave(result.room.id);
+        }
+        seatSpectator(socket, result.room, result.playerId, result.token);
         ack({ ok: true, spectator: true });
         return;
       }
@@ -367,6 +380,42 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('room:spectator_settings', (settings) => {
+    if (tooFast(socket)) return;
+    const seat = seats.get(socket.id);
+    if (!seat) return;
+    const room = manager.get(seat.roomId);
+    if (!room) return;
+    const clean: Partial<SpectatorPolicy> = {};
+    if (typeof settings?.accepting === 'boolean') clean.accepting = settings.accepting;
+    if (typeof settings?.maxSpectators === 'number' && Number.isFinite(settings.maxSpectators)) {
+      clean.maxSpectators = settings.maxSpectators;
+    }
+    const error = manager.updateSpectatorPolicy(room, seat.playerId, clean);
+    if (error) socket.emit('room:error', { message: error });
+  });
+
+  socket.on('room:kick_spectator', (spectatorId) => {
+    if (tooFast(socket)) return;
+    const seat = seats.get(socket.id);
+    if (!seat) return;
+    const room = manager.get(seat.roomId);
+    if (!room) return;
+    if (typeof spectatorId !== 'string') return;
+    const spectatorSocketId = room.spectators.get(spectatorId)?.socketId ?? null;
+    const error = manager.kickSpectator(room, seat.playerId, spectatorId);
+    if (error) {
+      socket.emit('room:error', { message: error });
+      return;
+    }
+    if (spectatorSocketId) {
+      const removed = io.sockets.sockets.get(spectatorSocketId);
+      seats.delete(spectatorSocketId);
+      removed?.leave(room.id);
+      removed?.emit('room:left', { reason: 'The host removed you from the spectators.' });
+    }
+  });
+
   socket.on('room:rename_tile', (payload) => {
     if (tooFast(socket)) return;
     const seat = seats.get(socket.id);
@@ -406,7 +455,7 @@ io.on('connection', (socket) => {
     seats.delete(socket.id);
     socket.leave(seat.roomId);
     if (room) {
-      if (seat.spectator) manager.leaveSpectator(room, socket.id);
+      if (seat.spectator) manager.leaveSpectator(room, seat.playerId);
       else manager.leave(room, seat.playerId);
     }
     socket.emit('room:left', { reason: seat.spectator ? 'You stopped watching.' : 'You left the table.' });
@@ -420,7 +469,7 @@ io.on('connection', (socket) => {
     seats.delete(socket.id);
     const room = manager.get(seat.roomId);
     if (!room) return;
-    if (seat.spectator) manager.leaveSpectator(room, socket.id);
+    if (seat.spectator) manager.markSpectatorDisconnected(room, seat.playerId);
     else manager.markDisconnected(room, seat.playerId);
   });
 });
@@ -434,12 +483,11 @@ function seatSocket(socket: GameSocket, room: Room, playerId: string, token: str
   for (const message of room.chat.slice(-30)) socket.emit('room:chat', message);
 }
 
-/** Watch-only: no game seat, no reconnect token, no ability to act. */
-function seatSpectator(socket: GameSocket, room: Room): void {
-  const viewerId = `spectator:${socket.id}`;
-  seats.set(socket.id, { roomId: room.id, playerId: viewerId, spectator: true });
+/** Watch-only: a reconnectable role with no game seat and no ability to act. */
+function seatSpectator(socket: GameSocket, room: Room, spectatorId: string, token: string): void {
+  seats.set(socket.id, { roomId: room.id, playerId: spectatorId, spectator: true });
   socket.join(room.id);
-  socket.emit('room:joined', { roomId: room.id, playerId: viewerId, token: '', spectator: true });
+  socket.emit('room:joined', { roomId: room.id, playerId: spectatorId, token, spectator: true });
   socket.emit('room:state', roomStatePayload(room));
   for (const message of room.chat.slice(-30)) socket.emit('room:chat', message);
 }
