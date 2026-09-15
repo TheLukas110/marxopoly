@@ -33,7 +33,7 @@ Configure its repository root as this repository's root and select `develop` for
 | Start command | `pnpm start` |
 | Health check | `/health` |
 | Instances | **1** |
-| Environment | `NODE_ENV=production`, `SHARE=0` |
+| Environment | `NODE_ENV=production`, `SHARE=0`, `SERVE_CLIENT=0` |
 | Port | Use your host's supplied `PORT`; otherwise `3001` |
 | Allowed frontend origins | `CLIENT_ORIGIN=https://YOUR-STAGING-PROJECT.pages.dev,https://develop.YOUR-PROJECT.pages.dev` |
 
@@ -42,8 +42,9 @@ Add the production Pages URL and custom domain to the production backend's list
 when ready. The allowlist is exact: arbitrary `*.pages.dev` sites and per-commit
 preview URLs are not automatically trusted. Use the stable `develop` alias or
 explicitly add a needed preview URL. Both polling and WebSocket upgrades enforce
-the allowlist. Non-browser clients without an Origin header remain supported;
-this policy is not user authentication.
+the allowlist. Production Socket.IO handshakes without an Origin header are
+rejected. This is a deployment boundary, not a replacement for authenticating
+individual game seats.
 
 The server must have a public HTTPS URL, for example
 `https://YOUR-GAME-SERVER.example.com`. Verify that `/health` returns `{"ok":true,...}`.
@@ -55,13 +56,16 @@ separate room lists. Keep one instance; disable sleep/scale-to-zero for active g
 Persistent rooms or horizontal scaling would require another backend change.
 The repository's Dockerfile remains an alternative for hosts that accept containers.
 
-`pnpm build:server` also rebuilds the frontend served by Node. Open
+`pnpm build:server` also rebuilds the optional frontend served by Node. Open
 `http://localhost:3001` after `pnpm start` for local play (or your configured port).
 This standalone build connects to the origin serving the page and ignores any
 leftover `VITE_SERVER_URL`, including a URL from an earlier Pages/test build.
 The server accepts browser connections to its own host even in production mode;
 separate Pages origins still need `CLIENT_ORIGIN`. If a reverse proxy rewrites
 the Host header, include the public backend origin in that allowlist too.
+Set `SERVE_CLIENT=1` only for a deliberately standalone deployment protected at
+the same edge. The separate Pages backend must keep it off, or its URL would
+expose an unprotected copy of the app.
 
 Pages and standalone builds share the output directory. After running a Pages
 build locally, run `pnpm build:server` again before starting a local game.

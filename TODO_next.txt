@@ -1,86 +1,172 @@
-#### Arbeitsstand und nächste Schritte – Marxopoly ####
-Stand: 12.09.2026
-Diese Datei dient als Arbeitsauftrag und Übergabe. Nach Änderungen Status,
-bekannte Probleme, Prüfungen und sinnvolle nächste Schritte aktualisieren.
+# AGENT INSTRUCTIONS
 
-### Umfang dieses Auftrags ###
-Die zwei gemeldeten Darstellungsbugs beheben und die nächsten Features bis
-einschließlich Impressum bearbeiten. Nutzerwunsch: einfach austauschbare
-Platzhalterdaten, noch keine Veröffentlichung. Spätere Punkte nicht beginnen.
+- Arbeite streng nach Priorität von oben nach unten.
+- Bearbeite pro Durchlauf immer nur EIN Ticket.
+- Lies vor Beginn die aktuelle Repository-Struktur und den bestehenden Code im
+  betroffenen Bereich.
+- Erstelle vor Code-Änderungen einen eigenen Branch:
+  `agent/<ticket-id>-<kurztitel>`.
+- Halte den Änderungsumfang des aktiven Tickets ein.
+- Aktualisiere nach Abschluss eines Tickets dessen Status, bekannte Grenzen und
+  Prüfungen in dieser Datei.
+- Führe vor dem Commit mindestens den für das Ticket relevanten Test und den
+  lokalen Produktions-Build aus: `pnpm build`.
+- Dokumentiere im Ticket, welche Prüfungen erfolgreich waren und welche
+  Probleme offen bleiben.
+- Die Anwendung wird gehostet, bleibt aber durch HTTP Basic Auth vollständig vor
+  freiem Zugriff verborgen und ist nur für einen kleinen eingeweihten Kreis
+  bestimmt.
+- Die Pages-Middleware schützt alle Frontend-Routen einschließlich statischer
+  Assets. Der separat gehostete Node-/WebSocket-Server liegt außerhalb dieser
+  Middleware und muss deshalb separat abgesichert und auf die erlaubten
+  Frontend-Ursprünge beschränkt werden.
+- Keine freie öffentliche Nutzung ohne Zugangsschutz und keine Werbung
+  einplanen.
 
-### Bearbeitet ###
-[x] Lokaler Produktions- und Freigabeablauf vorbereitet:
-    pnpm wurde über Corepack in ~/.npm-global/bin aktiviert und ist damit aus
-    dem Projektstamm verfügbar. `pnpm build` baut Shared, Server und Client;
-    `pnpm start` liefert danach alles über Port 3001 aus. `pnpm share` baut
-    vollständig, startet den Produktionsserver mit ngrok und gibt nach dem
-    Eintragen von NGROK_AUTHTOKEN einen direkten Invite-Link aus. `.env` mit
-    leerem Tokenplatzhalter angelegt; die getrackte `.env.example` dokumentiert
-    dieselben Werte. Kein echter Token gespeichert.
-[x] Überlappende Straßennamen auf den 3D-Karten:
-    Beschriftungsboxen werden vor dem Zeichnen vermessen. Überlappende und
-    am Bildrand abgeschnittene Boxen entfallen; Hover/Auswahl haben Vorrang.
-    Preise nur bei aktiven Labels; vollständige Namen und Preise bleiben im
-    Inspector und in der Feldauswahl erreichbar. Gilt für alle fünf Welten.
-[x] Abgeschnittene Straßennamen auf den 2D-Karten:
-    Starres Zeilenlimit entfernt, Platz für Namen und Preise getrennt und
-    Schrift anhand des echten Feldplatzes angepasst (auch Großbuchstaben und
-    Monospace-Karten). Volle Namen zusätzlich als Tooltip und zugänglicher
-    Feldname; Grundstücksdetails per Klick/Tastatur. Sehr lange eigene Namen
-    bleiben innerhalb des Namensbereichs scrollbar.
-    Kleine/schmale oder niedrige Ansichten behalten ein 440px großes Brett,
-    das in beide Richtungen scrollbar ist. Namen haben hier Vorrang vor
-    Symbolen und Grundstückspreisen; Preise in den Details, Steuern am Feld.
-[x] Impressum als ausdrücklich gekennzeichneten Entwurf erstellt:
-    Route /impressum, Link auf Startseite, in Lobby und laufender Partie.
-    Öffnet in eigenem Tab, damit das Spiel offen bleibt.
-    Platzhalter zentral ändern: packages/client/src/imprint.ts
-    Enthält Max Mustermann / Musterfirma, Musteranschrift und example.com-Mail.
-    Optionale Felder für Rechtsform, Vertretung, Register, Telefon, USt-IdNr.
-    und Wirtschafts-IdNr.; leere optionale Felder werden ausgeblendet.
-    isDraft bleibt true, bis die Beispieldaten ersetzt und geprüft wurden.
-    Client nach Datenänderungen neu bauen. Anleitung auch in README.md.
+==================================================
+## PROJEKTSTATUS
 
-### Prüfungen ###
-- TypeScript-Prüfung für Shared, Server und Client erfolgreich.
-- 43 Engine-Tests erfolgreich; Client-Tests inkl. zusätzlicher Regressionen
-  für Labelkollisionen, Bildschirmränder, Auswahlpriorität und vollständige
-  Feldnamen erfolgreich. 3D-Geometrieprüfungen verwenden einen Canvas-Mock.
-- Produktions-Bundle erfolgreich nach /tmp/marxopoly-client-build gebaut,
-  damit die bereits lokal geänderten Client-Builddateien erhalten bleiben.
-- Chromium-Browserprüfung: alle 40 Standardnamen auf allen fünf 2D-Karten
-  bei 296, 390, 600 und 800px Ansichtsgröße sowie 600x300px ohne Textüberlauf;
-  lange eigene Namen, Scrollen in beide Richtungen und WebGL-Start aller fünf
-  3D-Welten ebenfalls geprüft. Impressum-Link,
-  Öffnen im neuen Tab, Musterdaten und 320px-Mobilansicht erfolgreich geprüft.
-  Testwerkzeuge und Screenshots liegen temporär unter /tmp/marxopoly-ui-check.
+- Projekt: Marxopoly
+- Stand: 15.09.2026
+- Zweck dieser Datei: Arbeitsauftrag und Übergabe für die nächsten Agenten.
+- Primärer bisheriger Auftrag: zwei gemeldete Darstellungsbugs beheben und die
+  vorgesehenen Folgefeatures bearbeiten.
+- Platzhalterdaten sollen einfach austauschbar bleiben.
+- Zielbetrieb: Cloudflare Pages für das Frontend und ein separat gehosteter
+  Node.js-Server für Multiplayer und WebSockets.
 
-### Bekannte Grenzen / vor Veröffentlichung offen ###
-- Impressum enthält absichtlich Beispieldaten und ist noch nicht für eine
-  Veröffentlichung bestimmt. Je nach tatsächlichem Betreiber können weitere
-  Angaben nötig sein; kein abgeschlossener Rechtscheck.
+==================================================
+## COMPLETED
+
+[x] TASK-000 | SETUP | Lokalen Produktions- und Freigabeablauf vorbereiten
+  - pnpm wurde über Corepack in `~/.npm-global/bin` aktiviert und ist aus dem
+    Projektstamm verfügbar.
+  - `pnpm build` baut Shared, Server und Client.
+  - `pnpm start` liefert die Anwendung danach über Port 3001 aus.
+  - `pnpm share` baut vollständig, startet den Produktionsserver mit ngrok und
+    gibt nach dem Eintragen von `NGROK_AUTHTOKEN` einen direkten Invite-Link aus.
+    Dieser ngrok-Freigabepfad ist nicht der Zielbetrieb; der Zielbetrieb nutzt
+    das geschützte Hosting mit Basic Auth.
+  - `.env` enthält nur einen leeren Tokenplatzhalter; die getrackte
+    `.env.example` dokumentiert dieselben Werte. Kein echter Token ist
+    gespeichert.
+
+[x] TASK-001 | BUG | Überlappende Straßennamen auf 3D-Karten beheben
+  - Beschriftungsboxen werden vor dem Zeichnen vermessen.
+  - Überlappende oder am Bildrand abgeschnittene Boxen entfallen.
+  - Hover und Auswahl haben Vorrang.
+  - Preise werden nur bei aktiven Labels angezeigt.
+  - Vollständige Namen und Preise bleiben im Inspector und in der Feldauswahl
+    erreichbar.
+  - Gilt für alle fünf Welten.
+
+[x] TASK-002 | BUG | Abgeschnittene Straßennamen auf 2D-Karten beheben
+  - Das starre Zeilenlimit wurde entfernt.
+  - Platz für Namen und Preise wird getrennt behandelt.
+  - Die Schrift wird anhand des echten Feldplatzes angepasst, einschließlich
+    Großbuchstaben und Monospace-Karten.
+  - Vollständige Namen sind zusätzlich als Tooltip und als zugänglicher
+    Feldname verfügbar.
+  - Grundstücksdetails sind per Klick und Tastatur erreichbar.
+  - Sehr lange eigene Namen bleiben innerhalb des Namensbereichs scrollbar.
+  - Kleine, schmale oder niedrige Ansichten behalten ein 440px großes Brett,
+    das in beide Richtungen scrollbar ist.
+  - Namen haben dort Vorrang vor Symbolen und Grundstückspreisen; Preise stehen
+    in den Details, Steuern am Feld.
+
+[x] TASK-003 | SECURITY | Sicherheitsprüfung der gehosteten Anwendung durchführen
+  - Raumbeitritt, Sitzungswechsel, Chat, Handel, Socket-Nachrichten, Accounts,
+    öffentliche Konfiguration und der Pages-Zugriffsschutz wurden geprüft.
+  - Produktive Socket-Verbindungen ohne erlaubten `Origin` werden abgewiesen;
+    ebenso wird die öffentliche Raumliste am Backend nach Herkunft begrenzt.
+  - Der separat gehostete Produktionsserver liefert standardmäßig keine Kopie
+    des Frontends mehr aus und kann damit Pages Basic Auth nicht umgehen.
+    `SERVE_CLIENT=1` bleibt für bewusst geschützte Standalone-Installationen.
+  - Ein Socket kann nur einem Raum angehören. Gekickte Sockets werden aus dem
+    Socket-Raum und der Sitzungszuordnung entfernt.
+  - Fehlende Acknowledgements und missgebildete Aktionen oder Trade-Payloads
+    führen nicht mehr zu Geistersitzen oder absturzanfälligen Handlern.
+  - Raumcodes verwenden kryptografischen Zufall und werden auf Kollisionen
+    geprüft; Basic-Auth-Vergleiche verwenden Hashes mit konstantem Vergleich.
+  - Erfolgreiche Prüfungen: 44 Engine-Tests, 24 Server-Tests einschließlich
+    Hosted-Security-Integrationstest, 24 Client-Tests, Server-Typecheck und
+    `pnpm build`.
+  - Bekannte Grenze: Eine Origin-Allowlist ist keine Benutzeranmeldung; ein
+    eigener Client kann einen erlaubten Origin fälschen. Spielsitze bleiben über
+    zufällige Reconnect-Tokens geschützt. Für stärkeren Backend-Zugriffsschutz
+    ist zusätzlich eine Authentifizierung am Hosting-Edge erforderlich.
+
+==================================================
+## VALIDATION BASELINE
+
+- TypeScript-Prüfung für Shared, Server und Client war erfolgreich.
+- 43 Engine-Tests waren erfolgreich.
+- Client-Tests einschließlich Regressionen für Labelkollisionen,
+  Bildschirmränder, Auswahlpriorität und vollständige Feldnamen waren
+  erfolgreich.
+- Die 3D-Geometrieprüfungen verwenden einen Canvas-Mock.
+- Das Produktions-Bundle wurde erfolgreich nach
+  `/tmp/marxopoly-client-build` gebaut, damit bereits lokal geänderte
+  Client-Builddateien erhalten bleiben.
+- Chromium-Prüfung war erfolgreich: alle 40 Standardnamen auf allen fünf
+  2D-Karten bei 296, 390, 600 und 800px Ansichtsgröße sowie bei 600x300px ohne
+  Textüberlauf; außerdem lange eigene Namen, Scrollen in beide Richtungen und
+  WebGL-Start aller fünf 3D-Welten.
+- Testwerkzeuge und Screenshots liegen temporär unter
+  `/tmp/marxopoly-ui-check`.
+
+==================================================
+## BACKLOG / SUBTASKS
+
+[ ] TASK-004 | UX | Mobile Grundstücksübersicht ergänzen
+  - Umfang: Smartphone-Ansichten der Spielkarten.
+  - Anforderung: Eine Zoomsteuerung oder eine zuschaltbare Liste aller
+    Grundstücke mit vollständigen Namen, Eigentümern und Preisen anbieten.
+  - Test: Mobile Ansicht mit langen Namen, mehreren Grundstücken und
+    Tastaturbedienung prüfen; `pnpm build` muss fehlerfrei durchlaufen.
+
+[ ] TASK-005 | TEST | Browser-Regressionen in die CI aufnehmen
+  - Umfang: fünf Karten, relevante Ansichtsgrößen, lange eigene Namen,
+    Hypotheken und bis zu acht Spielfiguren.
+  - Anforderung: Die bestehenden Browser-Regressionen automatisiert in der CI
+    ausführen und Fehler eindeutig melden.
+  - Test: CI-Testlauf erfolgreich; `pnpm build` muss fehlerfrei durchlaufen.
+
+[ ] TASK-006 | DEPLOYMENT | Geschützten Hosted-Betrieb einrichten und prüfen
+  - Frontend: Cloudflare Pages mit `functions/_middleware.js` und
+    `_routes.json`; alle Frontend-Routen einschließlich Assets müssen Basic Auth
+    verlangen.
+  - Backend: separat gehosteter Node.js-Server mit HTTPS und WebSocket-Upgrades,
+    genau einer laufenden Instanz und `SHARE=0`.
+  - Konfiguration: `BASIC_AUTH_USER` und `BASIC_AUTH_PASS` als verschlüsselte
+    Pages-Umgebungsvariablen für Preview und Production setzen; keine
+    `VITE_`-Präfixe verwenden.
+  - Konfiguration: `VITE_SERVER_URL` auf die HTTPS-Adresse des Backends setzen
+    und `CLIENT_ORIGIN` auf die tatsächlich verwendeten Pages-Ursprünge
+    beschränken.
+  - Anforderung: Nicht authentifizierte Requests auf Frontend-Routen und
+    direkten Asset-URLs erhalten `401`; falsche Zugangsdaten erhalten ebenfalls
+    keinen Inhalt. Der Backend-Zugriff darf nicht fälschlich als durch die Pages
+    Middleware geschützt betrachtet werden.
+  - Test: Zugriffsschutz mit fehlenden, falschen und korrekten Zugangsdaten
+    prüfen; direkten Frontend-Asset-Aufruf testen; Spielablauf mit zwei
+    Browserprofilen inklusive Raumbeitritt, Spielstart, Chat und Reconnect
+    prüfen; `pnpm build`, `pnpm build:pages`, `pnpm typecheck` und `pnpm test`
+    müssen erfolgreich sein.
+
+==================================================
+## BEKANNTE GRENZEN
+
 - Sehr lange eigene 2D-Namen auf sehr kleinen Feldern benötigen Scrollen oder
   den Detailbereich. Die begrenzte Brettfläche bleibt eine Lesbarkeitsgrenze.
-- Keine vollständige Suche nach weiteren Spiel- oder Sicherheitsfehlern im
-  Rahmen dieses Auftrags durchgeführt.
+- Die Pages-Middleware schützt nicht den separat gehosteten Backend-Server.
+  Dessen Origin-Allowlist blockiert fremde Browserseiten, ist aber keine echte
+  Client-Authentifizierung. Für eine strengere Abschottung muss das Hosting-Edge
+  des Backends zusätzlich authentifizieren oder den Zugriff anderweitig
+  einschränken.
 
-### Ursprüngliche nächste Features – NICHT begonnen ###
-[ ] Make it legally safe (no copyright-issues with Monopoly).
-[ ] Critically check for (and Fix!) ANY security-Flaws.
-[ ] Host this as a web-App.
-[ ] Monetize with well-placed Ads.
+==================================================
+## DAUERHAFT AUSGESCHLOSSEN
 
-### Eigene Vorschläge für Folgeaufträge – nur vorgemerkt ###
-- Für Smartphones zusätzlich eine Zoomsteuerung oder zuschaltbare Liste aller
-  Grundstücke mit vollständigen Namen, Eigentümern und Preisen anbieten.
-- Browser-Regressionsprüfungen für fünf Karten, Größen, lange eigene Namen,
-  Hypotheken und bis zu acht Spielfiguren in die CI aufnehmen.
-- Vor Veröffentlichung echte Impressumsdaten einsetzen und betreiberspezifische
-  Pflichtangaben klären; anschließend separat Datenschutz, Speicherverhalten
-  und gegebenenfalls Einwilligungen planen.
-- Beim späteren Rechtscheck auch Spielname, Texte, Kartenmotive sowie Lizenzen
-  aller verwendeten Assets und Abhängigkeiten dokumentieren.
-- Beim späteren Sicherheitscheck insbesondere Raumbeitritt, Sitzungswechsel,
-  Chat/Handel, Socket-Nachrichten und öffentliche Konfiguration untersuchen.
-- Hosting erst nach diesen Prüfungen konkret planen; Werbung anschließend
-  hinsichtlich Datenschutz, Bedienbarkeit und Auswirkung auf Spieltempo bewerten.
+- Frei zugängliche öffentliche Nutzung ohne Zugangsschutz.
+- Monetarisierung und Werbung.
