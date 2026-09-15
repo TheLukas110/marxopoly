@@ -11,8 +11,18 @@ export async function onRequest(context) {
       const bytes = Uint8Array.from(atob(match[1]), char => char.charCodeAt(0));
       const credentials = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
       const separator = credentials.indexOf(':');
-      authenticated = separator >= 0 && credentials.slice(0, separator) === user &&
-        credentials.slice(separator + 1) === pass;
+      if (separator >= 0) {
+        const encoder = new TextEncoder();
+        const [actual, expected] = await Promise.all([
+          crypto.subtle.digest('SHA-256', encoder.encode(credentials)),
+          crypto.subtle.digest('SHA-256', encoder.encode(`${user}:${pass}`)),
+        ]);
+        const left = new Uint8Array(actual);
+        const right = new Uint8Array(expected);
+        let difference = 0;
+        for (let index = 0; index < left.length; index += 1) difference |= left[index] ^ right[index];
+        authenticated = difference === 0;
+      }
     } catch {
       // Malformed Base64 or UTF-8 is an unsuccessful login, not a server error.
     }

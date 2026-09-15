@@ -284,6 +284,20 @@ describe('trading', () => {
     expect(getPlayer(g, 'b')!.cash).toBe(1600);
   });
 
+  it('rejects malformed trade payloads without throwing or changing state', () => {
+    const g = act(newGame(), 'a', { type: 'start_game' });
+    const before = structuredClone(g);
+    const malformed = {
+      type: 'propose_trade',
+      toId: 'b',
+      give: { cash: 0, tileIds: {}, reprieveCards: 0 },
+      receive: { cash: 10, tileIds: [], reprieveCards: 0 },
+      message: { slice: 'not a function' },
+    } as unknown as GameAction;
+    expect(expectReject(g, 'a', malformed)).toMatch(/invalid trade contents/i);
+    expect(g).toEqual(before);
+  });
+
   it('refuses to trade a property that carries buildings', () => {
     let g = act(newGame(), 'a', { type: 'start_game' });
     g.deeds[1]!.ownerId = 'a';

@@ -21,6 +21,8 @@ const int = (value: string | undefined, fallback: number): number => {
 const flag = (value: string | undefined): boolean =>
   ['1', 'true', 'yes', 'on'].includes((value ?? '').toLowerCase());
 
+const isProd = process.env.NODE_ENV === 'production';
+
 /** Open a public ngrok tunnel on startup (so remote players can join). */
 const shareEnabled =
   process.argv.includes('--share') || flag(process.env.SHARE) || flag(process.env.NGROK);
@@ -36,7 +38,12 @@ export const config = {
   /** Rooms with no connected players are swept after this long. */
   emptyRoomTtlMs: int(process.env.EMPTY_ROOM_TTL_MS, 15 * 60_000),
   botThinkMs: int(process.env.BOT_THINK_MS, 1200),
-  isProd: process.env.NODE_ENV === 'production',
+  isProd,
+  /**
+   * Serve the bundled browser app from this process. Hosted API/WebSocket
+   * deployments default to off so the backend cannot bypass Pages Basic Auth.
+   */
+  serveClient: process.env.SERVE_CLIENT === undefined ? !isProd : flag(process.env.SERVE_CLIENT),
 
   /** ngrok tunnel — `pnpm share`, `--share`, or SHARE=1 / NGROK=1. */
   share: shareEnabled,

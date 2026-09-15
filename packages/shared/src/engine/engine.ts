@@ -770,11 +770,20 @@ function doUseReprieve(g: GameState, playerId: string, now: number): string | nu
 // Trading
 // ---------------------------------------------------------------------------
 
-function sanitizeSide(side: TradeSide): TradeSide {
+function sanitizeSide(side: TradeSide): TradeSide | string {
+  if (!side || typeof side !== 'object') return 'Invalid trade contents.';
+  if (typeof side.cash !== 'number' || !Number.isFinite(side.cash) ||
+      typeof side.reprieveCards !== 'number' || !Number.isFinite(side.reprieveCards) ||
+      !Array.isArray(side.tileIds)) {
+    return 'Invalid trade contents.';
+  }
+  if (side.tileIds.length > 40 || side.tileIds.some((id) => !Number.isInteger(id) || !ownableTile(id))) {
+    return 'Invalid property list.';
+  }
   return {
-    cash: Math.max(0, Math.round(side?.cash ?? 0)),
-    tileIds: Array.from(new Set((side?.tileIds ?? []).filter((id) => Number.isInteger(id) && !!ownableTile(id)))),
-    reprieveCards: Math.max(0, Math.round(side?.reprieveCards ?? 0)),
+    cash: Math.max(0, Math.round(side.cash)),
+    tileIds: Array.from(new Set(side.tileIds)),
+    reprieveCards: Math.max(0, Math.round(side.reprieveCards)),
   };
 }
 
@@ -822,7 +831,9 @@ function doProposeTrade(
   if (g.trades.filter((t) => t.fromId === playerId).length >= 5) return 'Too many open offers.';
 
   const give = sanitizeSide(action.give);
+  if (typeof give === 'string') return give;
   const receive = sanitizeSide(action.receive);
+  if (typeof receive === 'string') return receive;
   if (
     give.cash === 0 && give.tileIds.length === 0 && give.reprieveCards === 0 &&
     receive.cash === 0 && receive.tileIds.length === 0 && receive.reprieveCards === 0
@@ -842,7 +853,9 @@ function doProposeTrade(
     receive,
     createdAt: now,
   };
-  if (action.message) offer.message = action.message.slice(0, 200);
+  if (typeof action.message === 'string' && action.message.trim()) {
+    offer.message = action.message.trim().slice(0, 200);
+  }
   g.trades.push(offer);
   log(g, 'trade', `${from.name} sent ${to.name} a trade offer.${tradeNote(offer.message)}`, playerId);
   return null;

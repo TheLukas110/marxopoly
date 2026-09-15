@@ -7,6 +7,7 @@ services:
       NODE_ENV: production
       PORT: "3001"
       CLIENT_ORIGIN: "${CLIENT_ORIGIN:-http://localhost:3001}"
+      SERVE_CLIENT: "${SERVE_CLIENT:-1}"
       TURN_TIMEOUT_SECONDS: "90"
       ACCOUNT_DATA_FILE: /app/packages/server/data/accounts.json
     volumes:

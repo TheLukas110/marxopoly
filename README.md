@@ -219,6 +219,7 @@ Copy `.env.example` to `.env` in the repo root (the server reads it at startup).
 | --- | --- | --- |
 | `PORT` | `3001` | HTTP + WebSocket port. |
 | `CLIENT_ORIGIN` | `http://localhost:5173` | Allowed CORS origin(s), comma-separated, or `*`. |
+| `SERVE_CLIENT` | `1` outside production, otherwise `0` | Serve the bundled frontend from Node. Keep `0` on a separate hosted backend so it cannot bypass Pages Basic Auth. |
 | `RECONNECT_GRACE_MS` | `120000` | How long a disconnected player keeps their seat. |
 | `TURN_TIMEOUT_SECONDS` | `90` | Default turn timer for new rooms (`0` disables). |
 | `EMPTY_ROOM_TTL_MS` | `900000` | Idle empty rooms are swept after this. |

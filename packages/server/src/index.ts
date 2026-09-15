@@ -30,7 +30,10 @@ const staticOrigins = openCors
 let tunnelOrigin: string | null = null;
 
 function originAllowed(origin?: string, requestHost?: string): boolean {
-  if (!origin) return true; // curl and native apps may omit Origin
+  // A browser WebSocket handshake always has Origin. Refuse origin-less
+  // production sockets so a generic Socket.IO client cannot bypass the
+  // frontend-origin boundary. CLIENT_ORIGIN=* remains an explicit opt-out.
+  if (!origin) return !config.isProd;
   if (staticOrigins.includes(origin)) return true;
   if (tunnelOrigin && origin === tunnelOrigin) return true;
   try {
@@ -52,6 +55,7 @@ function originAllowed(origin?: string, requestHost?: string): boolean {
 
 const app = express();
 app.use(compression());
+app.disable('x-powered-by');
 app.use(
   cors(
     openCors
@@ -69,18 +73,26 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true, uptime: process.uptime() });
 });
 
-app.get('/api/rooms', (_req, res) => {
+app.get('/api/rooms', (req, res) => {
+  if (!openCors && !originAllowed(req.headers.origin, req.headers.host)) {
+    res.status(403).json({ error: 'Origin not allowed.' });
+    return;
+  }
   res.json(manager.list());
 });
 
-// In production the built client is served from the same origin.
+// Local/standalone mode may serve the built client. A separately hosted
+// production backend defaults this off; otherwise its public URL would bypass
+// the Basic Auth middleware protecting the Pages frontend.
 const clientDist = path.resolve(__dirname, '../../client/dist');
-app.use(express.static(clientDist));
-app.get(/^(?!\/api|\/socket\.io|\/health).*/, (_req, res, next) => {
-  res.sendFile(path.join(clientDist, 'index.html'), (err) => {
-    if (err) next();
+if (config.serveClient) {
+  app.use(express.static(clientDist));
+  app.get(/^(?!\/api|\/socket\.io|\/health).*/, (_req, res, next) => {
+    res.sendFile(path.join(clientDist, 'index.html'), (err) => {
+      if (err) next();
+    });
   });
-});
+}
 
 const httpServer = createServer(app);
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
@@ -217,8 +229,13 @@ io.on('connection', (socket) => {
   });
 
   socket.on('room:create', async (payload, ack) => {
+    if (typeof ack !== 'function') return;
     if (tooFast(socket, ack, 5)) return;
     try {
+      if (seats.has(socket.id)) {
+        ack({ ok: false, error: 'Leave your current table before opening another one.' });
+        return;
+      }
       if (!payload?.playerName?.trim()) {
         ack({ ok: false, error: 'Pick a name first.' });
         return;
@@ -245,8 +262,13 @@ io.on('connection', (socket) => {
   });
 
   socket.on('room:join', (payload, ack) => {
+    if (typeof ack !== 'function') return;
     if (tooFast(socket, ack, 4)) return;
     try {
+      if (seats.has(socket.id)) {
+        ack({ ok: false, error: 'Leave your current table before joining another one.' });
+        return;
+      }
       const result = manager.join(
         (payload?.roomId ?? '').trim(),
         payload?.playerName ?? 'Player',
@@ -331,8 +353,22 @@ io.on('connection', (socket) => {
     if (!seat) return;
     const room = manager.get(seat.roomId);
     if (!room) return;
+    if (typeof playerId !== 'string') {
+      socket.emit('room:error', { message: 'Invalid player.' });
+      return;
+    }
+    const kickedSocketId = room.sockets.get(playerId);
     const error = manager.kick(room, seat.playerId, playerId);
-    if (error) socket.emit('room:error', { message: error });
+    if (error) {
+      socket.emit('room:error', { message: error });
+      return;
+    }
+    if (kickedSocketId) {
+      const kicked = io.sockets.sockets.get(kickedSocketId);
+      seats.delete(kickedSocketId);
+      kicked?.leave(room.id);
+      kicked?.emit('room:left', { reason: 'The host removed you from the table.' });
+    }
   });
 
   socket.on('room:rename_tile', (payload) => {

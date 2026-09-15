@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import {
   addCard,
   addPlayerToLobby,
@@ -115,7 +115,8 @@ export class RoomManager {
     if (this.rooms.size >= MAX_ROOMS) {
       throw new Error('The server is at capacity right now. Try again in a few minutes.');
     }
-    const id = shortCode();
+    let id = shortCode();
+    while (this.rooms.has(id)) id = shortCode();
     const playerId = randomUUID();
     const token = randomUUID();
     const state = createGame(id, [{ id: playerId, name: clean(opts.playerName) }], {
@@ -328,6 +329,9 @@ export class RoomManager {
 
   dispatch(room: Room, playerId: string, action: GameAction, spectator = false): string | null {
     if (spectator) return 'Viewers cannot take actions.';
+    if (!action || typeof action !== 'object' || typeof action.type !== 'string') {
+      return 'Invalid action.';
+    }
     // Players may never inject engine-internal actions.
     if (action.type === 'set_connected' || action.type === 'timeout') {
       return 'Not allowed.';
@@ -453,7 +457,7 @@ const CODE_LENGTH = 6;
 function shortCode(): string {
   let out = '';
   for (let i = 0; i < CODE_LENGTH; i++) {
-    out += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+    out += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)];
   }
   return out;
 }
