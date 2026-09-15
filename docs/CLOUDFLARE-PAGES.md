@@ -8,21 +8,23 @@ Express/Socket.IO server. You need both services for a playable deployment.
 
 | Role | Origin |
 | --- | --- |
-| Custom frontend | `https://www.marxopoly.de` |
+| Custom frontend | `https://www.marxopoly.me` |
 | Cloudflare Pages | `https://marxopoly.pages.dev` |
 | Render backend | `https://marxopoly.onrender.com` |
 
 Use `VITE_SERVER_URL=https://marxopoly.onrender.com` for the Pages production
 build. The Render production service must use
-`CLIENT_ORIGIN=https://www.marxopoly.de,https://marxopoly.pages.dev`. These are
+`CLIENT_ORIGIN=https://www.marxopoly.me,https://marxopoly.pages.dev`. These are
 origins, so they deliberately have no trailing slash.
 
-External verification on 2026-09-15 found that Pages correctly returned `401`
-for both `/` and a direct asset request, while Render returned `200` from
-`/health`, `404` from `/`, and `403` for requests without an allowed Origin.
-At that time, Render also rejected both intended frontend origins and the custom
-domain returned `NXDOMAIN`; the Render allowlist and Cloudflare DNS therefore
-still needed to be configured.
+External verification on 2026-09-15 confirmed that `www.marxopoly.me` points to
+the Pages project and has working TLS. Pages returned `401` for both `/` and a
+direct asset request without credentials and with incorrect credentials. Render
+returned `200` from `/health`, `404` from `/`, accepted API and Socket.IO requests
+from both intended frontend origins, and rejected a foreign origin. A live
+two-client backend smoke test also completed room creation, joining, game start,
+chat, a roll, and token-based reconnect. The optional apex hostname
+`marxopoly.me` is not configured; production uses `www`.
 
 ## Review the deployment branch first
 

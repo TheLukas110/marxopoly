@@ -190,14 +190,17 @@
     der sechs neuen Expedition-Welten alle 67 Chromium-Tests. Zwei getrennte
     Browserprofile haben Raumbeitritt,
     Spielstart, Chat, Würfeln und Reconnect erfolgreich durchlaufen.
-  - Zum Abschluss erforderlich: Cloudflare-Pages-Projekt und Backenddienst
-    vollständig verbinden, `CLIENT_ORIGIN` auf
-    `https://www.marxopoly.de,https://marxopoly.pages.dev` setzen und
-    `VITE_SERVER_URL=https://marxopoly.onrender.com` verwenden. Die Domain ist
-    derzeit noch `NXDOMAIN`. Pages liefert ohne Zugangsdaten auf `/` und einer
-    direkten Asset-URL korrekt `401`; Render liefert auf `/health` korrekt `200`,
-    lehnt aber derzeit auch beide vorgesehenen Frontend-Origins mit `403` ab.
-    Abschließend korrekte Zugangsdaten und den Spielablauf gegen die echten URLs
+  - Live-Prüfung: `www.marxopoly.me` zeigt mit gültigem TLS auf das Pages-Projekt.
+    Pages liefert ohne und mit falschen Zugangsdaten auf `/` sowie einer direkten
+    Asset-URL korrekt `401`. Render liefert auf `/health` korrekt `200`, stellt auf
+    `/` kein ungeschütztes Frontend bereit, akzeptiert API- und Socket.IO-Zugriffe
+    von `https://www.marxopoly.me` und `https://marxopoly.pages.dev` und blockiert
+    eine fremde Origin. Der optionale Apex-Hostname `marxopoly.me` ist nicht
+    konfiguriert; Produktion verwendet `www`. Zwei Live-Socket-Clients haben
+    außerdem privaten Raumbeitritt, Spielstart, Chat, Würfeln und tokenbasierten
+    Reconnect erfolgreich durchlaufen.
+  - Zum Abschluss erforderlich: korrekte Basic-Auth-Zugangsdaten und den
+    vollständigen Frontend-Ablauf mit zwei Browserprofilen gegen die echte URL
     prüfen.
 
 ==================================================
