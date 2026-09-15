@@ -117,7 +117,8 @@ export default function GameRoom() {
       {showRules && <GameDialog title="Table rules" onClose={() => setShowRules(false)}><p className="muted">The rules chosen for this table. They stay fixed during the game.</p><dl className="table-rules">{[
         ['Starting cash', money(state.settings.startingCash)], ['Salary at Start', money(state.settings.startSalary)],
         ['Turn timer', state.settings.turnSeconds ? `${state.settings.turnSeconds} seconds` : 'No time limit'],
-        ['Holding yard fine', money(state.settings.holdingFine)], ['Auctions', state.settings.auctionsEnabled],
+        ['Holding yard fine', money(state.settings.holdingFine)],
+        ['Auctions', state.settings.auctionsEnabled ? state.settings.auctionMode === 'sealed' ? 'Sealed' : 'Open' : false],
         ['Even building', state.settings.evenBuild], ['Double rent on full sets', state.settings.doubleRentOnFullGroup],
         ['Plaza pot', state.settings.plazaPot], ['No rent in holding', state.settings.noRentInHolding],
         ['Bonus on exact Start', state.settings.doubleOnExactStart], ['House supply', state.settings.houseSupply || 'Unlimited'],

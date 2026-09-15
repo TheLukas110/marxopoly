@@ -323,6 +323,10 @@ describe('mortgages', () => {
 });
 
 describe('auctions', () => {
+  it('keeps open turn-by-turn auctions as the default', () => {
+    expect(newGame().settings.auctionMode).toBe('open');
+  });
+
   it('awards the property to the last bidder standing', () => {
     let g = act(newGame(), 'a', { type: 'start_game' });
     g = place(g, 'a', 1);
@@ -356,6 +360,50 @@ describe('auctions', () => {
     g = act(g, 'b', { type: 'pass_bid' });
     g = act(g, 'c', { type: 'pass_bid' });
     expect(g.deeds[1]!.ownerId).toBeNull();
+  });
+
+  it('collects one sealed decision per player and keeps bids hidden from the running high bid', () => {
+    let g = act(newGame({ auctionMode: 'sealed' }), 'a', { type: 'start_game' });
+    g = place(g, 'a', 1);
+    g.phase = 'awaiting_buy';
+    g = act(g, 'a', { type: 'decline_property' });
+    expect(g.auction?.mode).toBe('sealed');
+    g = act(g, 'c', { type: 'bid', amount: 80 });
+    expect(g.auction?.sealedBids).toEqual({ c: 80 });
+    expect(g.auction?.highBid).toBe(0);
+    expect(expectReject(g, 'c', { type: 'bid', amount: 90 })).toMatch(/already submitted/i);
+    expect(expectReject(g, 'b', { type: 'bid', amount: 5000 })).toMatch(/more cash/i);
+    g = act(g, 'a', { type: 'pass_bid' });
+    g = act(g, 'b', { type: 'bid', amount: 70 });
+    expect(g.deeds[1]!.ownerId).toBe('c');
+    expect(getPlayer(g, 'c')!.cash).toBe(1420);
+  });
+
+  it('breaks equal sealed bids by seat order starting at the triggering player', () => {
+    let g = act(newGame({ auctionMode: 'sealed' }), 'a', { type: 'start_game' });
+    g.turnSeat = getPlayer(g, 'b')!.seat;
+    g = place(g, 'b', 1);
+    g.phase = 'awaiting_buy';
+    g = act(g, 'b', { type: 'decline_property' });
+    expect(g.auction?.activeIds).toEqual(['b', 'c', 'a']);
+    g = act(g, 'a', { type: 'bid', amount: 100 });
+    g = act(g, 'c', { type: 'bid', amount: 100 });
+    g = act(g, 'b', { type: 'pass_bid' });
+    expect(g.deeds[1]!.ownerId).toBe('c');
+  });
+
+  it('treats missing sealed decisions as passes when the shared deadline expires', () => {
+    let g = act(newGame({ auctionMode: 'sealed', turnSeconds: 90 }), 'a', { type: 'start_game' });
+    g = place(g, 'a', 1);
+    g.phase = 'awaiting_buy';
+    g = act(g, 'a', { type: 'decline_property' });
+    const deadline = g.auction?.deadline;
+    g = act(g, 'b', { type: 'bid', amount: 65 });
+    expect(g.auction?.deadline).toBe(deadline);
+    g = act(g, 'server', { type: 'timeout' });
+    expect(g.deeds[1]!.ownerId).toBe('b');
+    expect(getPlayer(g, 'b')!.cash).toBe(1435);
+    expect(g.log.filter((entry) => /counts as a pass/.test(entry.text))).toHaveLength(2);
   });
 });
 

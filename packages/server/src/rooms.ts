@@ -372,8 +372,8 @@ export class RoomManager {
   // Timers
   // -------------------------------------------------------------------------
 
-  private tick(): void {
-    const now = Date.now();
+  /** Evaluate room deadlines. The optional clock keeps timeout tests deterministic. */
+  tick(now = Date.now()): void {
     for (const room of [...this.rooms.values()]) {
       if (
         room.sockets.size === 0 &&
@@ -433,6 +433,13 @@ function pickBotActor(state: GameState): string | null {
     return player?.isBot && state.drawnCard?.playerId === player.id ? player.id : null;
   }
   if (state.phase === 'auction' && state.auction) {
+    if (state.auction.mode === 'sealed') {
+      const id = state.auction.activeIds.find((candidate) =>
+        !state.auction!.submittedIds.includes(candidate)
+        && state.players.find((player) => player.id === candidate)?.isBot,
+      );
+      return id ?? null;
+    }
     const id = state.auction.activeIds[state.auction.turnIndex];
     const player = state.players.find((p) => p.id === id);
     return player?.isBot ? player.id : null;

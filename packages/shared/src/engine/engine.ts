@@ -630,25 +630,40 @@ function beginAuction(g: GameState, tileId: number, starterId: string, now: numb
   );
   g.auction = {
     tileId,
+    mode: g.settings.auctionMode,
     highBid: 0,
     highBidderId: null,
     activeIds: ordered.map((p) => p.id),
     turnIndex: 0,
+    submittedIds: [],
+    sealedBids: {},
     deadline: g.settings.turnSeconds > 0 ? now + Math.max(15, g.settings.turnSeconds / 3) * 1000 : null,
   };
   g.phase = 'auction';
-  log(g, 'system', `Auction open for ${tname(g, tileId)}.`);
+  log(g, 'system', `${g.settings.auctionMode === 'sealed' ? 'Sealed auction' : 'Auction'} open for ${tname(g, tileId)}.`);
 }
 
 function doBid(g: GameState, playerId: string, amount: number, now: number): string | null {
   const auction = g.auction;
   if (g.phase !== 'auction' || !auction) return 'No auction is running.';
-  if (auction.activeIds[auction.turnIndex] !== playerId) return 'It is not your bid.';
   const player = getPlayer(g, playerId);
   if (!player) return 'Unknown player.';
   const bid = Math.round(amount);
-  if (!Number.isFinite(bid) || bid <= auction.highBid) return 'Bid must beat the current bid.';
+  if (!Number.isFinite(bid) || bid <= 0) return 'Bid must be positive.';
   if (bid > player.cash) return 'You cannot bid more cash than you hold.';
+
+  if (auction.mode === 'sealed') {
+    if (!auction.activeIds.includes(playerId)) return 'You are not eligible for this auction.';
+    if (auction.submittedIds.includes(playerId)) return 'You already submitted a sealed decision.';
+    auction.sealedBids[playerId] = bid;
+    auction.submittedIds.push(playerId);
+    log(g, 'system', `${player.name} submitted a sealed bid.`, playerId);
+    advanceAuction(g, now);
+    return null;
+  }
+
+  if (auction.activeIds[auction.turnIndex] !== playerId) return 'It is not your bid.';
+  if (bid <= auction.highBid) return 'Bid must beat the current bid.';
 
   auction.highBid = bid;
   auction.highBidderId = playerId;
@@ -660,8 +675,18 @@ function doBid(g: GameState, playerId: string, amount: number, now: number): str
 function doPassBid(g: GameState, playerId: string, now: number): string | null {
   const auction = g.auction;
   if (g.phase !== 'auction' || !auction) return 'No auction is running.';
-  if (auction.activeIds[auction.turnIndex] !== playerId) return 'It is not your bid.';
   const player = getPlayer(g, playerId);
+
+  if (auction.mode === 'sealed') {
+    if (!auction.activeIds.includes(playerId)) return 'You are not eligible for this auction.';
+    if (auction.submittedIds.includes(playerId)) return 'You already submitted a sealed decision.';
+    auction.submittedIds.push(playerId);
+    if (player) log(g, 'system', `${player.name} passed in the sealed auction.`, playerId);
+    advanceAuction(g, now);
+    return null;
+  }
+
+  if (auction.activeIds[auction.turnIndex] !== playerId) return 'It is not your bid.';
   auction.activeIds.splice(auction.turnIndex, 1);
   if (auction.turnIndex >= auction.activeIds.length) auction.turnIndex = 0;
   if (player) log(g, 'system', `${player.name} passed.`, playerId);
@@ -671,6 +696,10 @@ function doPassBid(g: GameState, playerId: string, now: number): string | null {
 
 function advanceAuction(g: GameState, now: number, afterPass = false): void {
   const auction = g.auction!;
+  if (auction.mode === 'sealed') {
+    if (auction.activeIds.every((id) => auction.submittedIds.includes(id))) finishAuction(g, now);
+    return;
+  }
   const done =
     auction.activeIds.length === 0 ||
     (auction.activeIds.length === 1 && auction.activeIds[0] === auction.highBidderId);
@@ -687,6 +716,21 @@ function advanceAuction(g: GameState, now: number, afterPass = false): void {
 function finishAuction(g: GameState, now: number): void {
   const auction = g.auction!;
   const tile = tileAt(auction.tileId);
+  if (auction.mode === 'sealed') {
+    let winningId: string | null = null;
+    let winningBid = 0;
+    // activeIds starts at the triggering player, so keeping the first maximum
+    // resolves equal bids deterministically by seat order from that player.
+    for (const id of auction.activeIds) {
+      const bid = auction.sealedBids[id] ?? 0;
+      if (bid > winningBid) {
+        winningBid = bid;
+        winningId = id;
+      }
+    }
+    auction.highBid = winningBid;
+    auction.highBidderId = winningId;
+  }
   if (auction.highBidderId && auction.highBid > 0) {
     const winner = getPlayer(g, auction.highBidderId)!;
     winner.cash -= auction.highBid;
@@ -1092,6 +1136,8 @@ function bankrupt(g: GameState, debtorId: string, creditorId: string | null, now
   if (g.debt?.debtorId === debtorId) g.debt = null;
   if (g.auction) {
     g.auction.activeIds = g.auction.activeIds.filter((id) => id !== debtorId);
+    g.auction.submittedIds = g.auction.submittedIds.filter((id) => id !== debtorId);
+    delete g.auction.sealedBids[debtorId];
     if (g.auction.turnIndex >= g.auction.activeIds.length) g.auction.turnIndex = 0;
   }
 
@@ -1217,9 +1263,20 @@ function doTimeout(g: GameState, now: number): string | null {
       return doDecline(g, player.id, now);
     }
     case 'auction': {
-      const bidderId = g.auction?.activeIds[g.auction.turnIndex];
-      if (!bidderId) return null;
-      return doPassBid(g, bidderId, now);
+      const auction = g.auction;
+      if (!auction) return null;
+      if (auction.mode === 'sealed') {
+        for (const id of auction.activeIds) {
+          if (auction.submittedIds.includes(id)) continue;
+          const player = getPlayer(g, id);
+          if (player) log(g, 'system', `${player.name} did not submit a sealed bid; this counts as a pass.`, id);
+          auction.submittedIds.push(id);
+        }
+        finishAuction(g, now);
+        return null;
+      }
+      const bidderId = auction.activeIds[auction.turnIndex];
+      return bidderId ? doPassBid(g, bidderId, now) : null;
     }
     case 'post_roll': {
       const player = currentPlayer(g);
