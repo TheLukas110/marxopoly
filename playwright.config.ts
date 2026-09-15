@@ -15,11 +15,26 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
-  webServer: {
-    command: 'pnpm --filter @marxopoly/client exec vite --host 127.0.0.1 --port 4173 --strictPort',
-    url: 'http://127.0.0.1:4173/visual-regression.html',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: 'pnpm --filter @marxopoly/server exec tsx src/index.ts',
+      url: 'http://127.0.0.1:3001/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: {
+        NODE_ENV: 'development',
+        PORT: '3001',
+        CLIENT_ORIGIN: 'http://127.0.0.1:4173',
+        SHARE: '0',
+        SERVE_CLIENT: '0',
+      },
+    },
+    {
+      command: 'pnpm --filter @marxopoly/client exec vite --host 127.0.0.1 --port 4173 --strictPort',
+      url: 'http://127.0.0.1:4173/visual-regression.html',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 });

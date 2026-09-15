@@ -4,27 +4,49 @@ The frontend runs on Cloudflare Pages. Multiplayer runs on a **separate, always-
 Node.js server** with HTTPS and WebSocket support. Pages cannot run this repository's
 Express/Socket.IO server. You need both services for a playable deployment.
 
-## Review develop first
+## Current production targets
 
-The implementation branch is `develop`, based on `origin/main` at `904c024`.
-Build the frontend and backend from the **same commit**: their board data and rules
-must match. For review, use a separate staging backend running `develop`; do not
-point the new frontend at an older production backend.
+| Role | Origin |
+| --- | --- |
+| Custom frontend | `https://www.marxopoly.de` |
+| Cloudflare Pages | `https://marxopoly.pages.dev` |
+| Render backend | `https://marxopoly.onrender.com` |
+
+Use `VITE_SERVER_URL=https://marxopoly.onrender.com` for the Pages production
+build. The Render production service must use
+`CLIENT_ORIGIN=https://www.marxopoly.de,https://marxopoly.pages.dev`. These are
+origins, so they deliberately have no trailing slash.
+
+External verification on 2026-09-15 found that Pages correctly returned `401`
+for both `/` and a direct asset request, while Render returned `200` from
+`/health`, `404` from `/`, and `403` for requests without an allowed Origin.
+At that time, Render also rejected both intended frontend origins and the custom
+domain returned `NXDOMAIN`; the Render allowlist and Cloudflare DNS therefore
+still needed to be configured.
+
+## Review the deployment branch first
+
+The deployment work currently lives on `agent/TASK-006-hosted-betrieb` and includes
+the latest `origin/main`. Build the frontend and backend from the **same commit**:
+their board data and rules must match. For review, use a separate staging backend
+running the deployment branch; do not point the new frontend at an older production
+backend.
 
 For an existing Pages project, leave its production branch as `main`, and enable
-preview builds for `develop`. Set the backend URL in the **Preview** environment.
-Open `https://develop.YOUR-PROJECT.pages.dev` to review the changes using the
-configured Basic Auth credentials.
+preview builds for the deployment branch. Set the backend URL in the **Preview**
+environment. Open the stable branch-alias URL shown by Pages to review the changes
+using the configured Basic Auth credentials.
 
-For a new project, create a staging Pages project with production branch `develop`.
-Its URL is `https://YOUR-STAGING-PROJECT.pages.dev`. Create/configure the production
-project for `main` when you are ready. Nothing in this repository automatically
-merges branches or deploys a backend.
+For a new project, create a staging Pages project with the deployment branch as its
+production branch. Its URL is `https://YOUR-STAGING-PROJECT.pages.dev`.
+Create/configure the production project for `main` when you are ready. Nothing in
+this repository automatically merges branches or deploys a backend.
 
 ## 1. Host the Node.js game server
 
 Use a Node.js host that supports a long-running process and WebSocket upgrades.
-Configure its repository root as this repository's root and select `develop` for staging.
+Configure its repository root as this repository's root and select the deployment
+branch for staging.
 
 | Setting | Value |
 | --- | --- |
@@ -35,7 +57,7 @@ Configure its repository root as this repository's root and select `develop` for
 | Instances | **1** |
 | Environment | `NODE_ENV=production`, `SHARE=0`, `SERVE_CLIENT=0` |
 | Port | Use your host's supplied `PORT`; otherwise `3001` |
-| Allowed frontend origins | `CLIENT_ORIGIN=https://YOUR-STAGING-PROJECT.pages.dev,https://develop.YOUR-PROJECT.pages.dev` |
+| Allowed frontend origins | `CLIENT_ORIGIN=https://YOUR-STAGING-PROJECT.pages.dev,https://YOUR-BRANCH-ALIAS.YOUR-PROJECT.pages.dev` |
 
 Replace the example origins with the ones you actually use, with no trailing slash.
 Add the production Pages URL and custom domain to the production backend's list
@@ -140,17 +162,24 @@ pnpm build
 pnpm typecheck
 pnpm test
 VITE_SERVER_URL=https://YOUR-GAME-SERVER.example.com pnpm build:pages
+pnpm test:browser
 ```
+
+The browser suite uses two isolated Chromium profiles to exercise room join,
+game start, chat, a roll and reconnect against a real local Socket.IO server.
+It also runs the eleven-map viewport matrix. The Basic Auth unit tests cover the
+middleware with missing, malformed, wrong and correct credentials, including a
+direct asset path.
 
 With a built server running, the integration check supports separate origins:
 
 ```bash
-SMOKE_CLIENT_ORIGIN=https://develop.YOUR-PROJECT.pages.dev node packages/client/invitations.smoke.mjs https://YOUR-GAME-SERVER.example.com https://develop.YOUR-PROJECT.pages.dev
+SMOKE_CLIENT_ORIGIN=https://YOUR-BRANCH-ALIAS.YOUR-PROJECT.pages.dev node packages/client/invitations.smoke.mjs https://YOUR-GAME-SERVER.example.com https://YOUR-BRANCH-ALIAS.YOUR-PROJECT.pages.dev
 ```
 
-When approved, merge `develop` into `main`, deploy the matching backend revision,
-and let Pages build `main` with the production backend URL. Schedule backend
-updates between games. No live deployment was performed by this change.
+When approved, merge the deployment branch into `main`, deploy the matching backend
+revision, and let Pages build `main` with the production backend URL. Schedule
+backend updates between games. No live deployment was performed by this change.
 
 Before public release, review [the outstanding IP issues](IP-REVIEW.md).
 
