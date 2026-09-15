@@ -24,6 +24,7 @@ export default function Board({ state, selected, onSelect, controls }: Props) {
   const current = state.players.find((p) => p.seat === state.turnSeat && !p.bankrupt);
   const card = state.drawnCard;
   const cardText = card ? state.cards.find((c) => c.id === card.cardId)?.text ?? '' : '';
+  const cardPending = card?.status === 'pending';
 
   if (view === '3d') return <Suspense fallback={<div className="world-loading" role="status">Building your world…</div>}>
     <WorldBoard theme={map.id} state={state} selected={selected} onSelect={onSelect} controls={controls} onUnavailable={() => setBoardView('2d')} />
@@ -72,9 +73,12 @@ export default function Board({ state, selected, onSelect, controls }: Props) {
             <div className="centre-pot">Plaza pot: {money(state.plazaPot)}</div>
           )}
           {card && (
-            <div className={`centre-card ${card.deck}`} role="status" aria-live="polite">
-              <span className="deck-label">Last drawn · {card.deck === 'fortune' ? 'Fortune' : 'Ledger'}</span>
+            <div className={`centre-card ${card.deck}${cardPending ? ' pending' : ''}`} role="status" aria-live="polite" aria-atomic="true">
+              <span className="deck-label">
+                {cardPending ? 'Awaiting confirmation' : 'Resolved'} · {card.deck === 'fortune' ? 'Fortune' : 'Ledger'}
+              </span>
               {cardText}
+              {cardPending && <span className="card-pending-note">Its effect has not been applied yet.</span>}
             </div>
           )}
         </div>

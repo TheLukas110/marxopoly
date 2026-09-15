@@ -55,7 +55,10 @@ describe('drawn card display', () => {
     if (deck === 'fortune') g.fortuneDeck = [card.id];
     else g.ledgerDeck = [card.id];
     g = act(primeRollTo(g, 'a', deck === 'fortune' ? 7 : 2), 'a', { type: 'roll_dice' });
-    expect(g.drawnCard).toEqual({ deck, cardId: card.id });
+    expect(g.drawnCard).toEqual({ deck, cardId: card.id, playerId: 'a', status: 'pending' });
+    expect(g.phase).toBe('awaiting_card');
+    g = act(g, 'a', { type: 'confirm_card' });
+    expect(g.drawnCard?.status).toBe('resolved');
     // A normal completed roll, irrespective of the deterministic dice being doubles.
     g.phase = 'post_roll';
     g = act(g, 'a', { type: 'end_turn' });
@@ -68,7 +71,98 @@ describe('drawn card display', () => {
     if (nextDeck === 'fortune') g.fortuneDeck = [nextCard.id];
     else g.ledgerDeck = [nextCard.id];
     g = act(primeRollTo(g, 'b', nextDeck === 'fortune' ? 7 : 2), 'b', { type: 'roll_dice' });
-    expect(g.drawnCard).toEqual({ deck: nextDeck, cardId: nextCard.id });
+    expect(g.drawnCard).toEqual({ deck: nextDeck, cardId: nextCard.id, playerId: 'b', status: 'pending' });
+  });
+});
+
+describe('card confirmation', () => {
+  it('defers the effect, authorizes only the drawer and cannot apply twice', () => {
+    let g = act(newGame(), 'a', { type: 'start_game' });
+    const card = g.cards.find((candidate) => candidate.deck === 'fortune'
+      && candidate.effect.kind === 'cash' && candidate.effect.amount > 0)!;
+    g.fortuneDeck = [card.id];
+    const beforeCash = getPlayer(g, 'a')!.cash;
+
+    g = act(primeRollTo(g, 'a', 7), 'a', { type: 'roll_dice' });
+    expect(getPlayer(g, 'a')!.cash).toBe(beforeCash);
+    expect(expectReject(g, 'b', { type: 'confirm_card' })).toMatch(/not your card/i);
+    expect(expectReject(g, 'a', { type: 'end_turn' })).toMatch(/pending card/i);
+
+    g = act(g, 'a', { type: 'confirm_card' });
+    expect(getPlayer(g, 'a')!.cash).toBe(beforeCash + card.effect.amount);
+    expect(g.drawnCard?.status).toBe('resolved');
+    const resolvedCash = getPlayer(g, 'a')!.cash;
+    expect(expectReject(g, 'a', { type: 'confirm_card' })).toMatch(/no card waiting/i);
+    expect(getPlayer(g, 'a')!.cash).toBe(resolvedCash);
+  });
+
+  it('keeps a second card pending when a confirmed movement card lands on its deck', () => {
+    let g = act(newGame(), 'a', { type: 'start_game' });
+    const first = makeCard({
+      deck: 'fortune',
+      text: 'Continue to Ledger.',
+      effect: { kind: 'move_to', tile: 2, collectStart: false },
+    }, 'chain-f');
+    const second = makeCard({
+      deck: 'ledger',
+      text: 'Collect after confirming.',
+      effect: { kind: 'cash', amount: 77 },
+    }, 'chain-l');
+    g.cards.push(first, second);
+    g.fortuneDeck = [first.id];
+    g.ledgerDeck = [second.id];
+    const beforeCash = getPlayer(g, 'a')!.cash;
+
+    g = act(primeRollTo(g, 'a', 7), 'a', { type: 'roll_dice' });
+    g = act(g, 'a', { type: 'confirm_card' });
+    expect(getPlayer(g, 'a')!.position).toBe(2);
+    expect(getPlayer(g, 'a')!.cash).toBe(beforeCash);
+    expect(g.drawnCard).toEqual({ deck: 'ledger', cardId: second.id, playerId: 'a', status: 'pending' });
+    expect(g.phase).toBe('awaiting_card');
+
+    g = act(g, 'a', { type: 'confirm_card' });
+    expect(getPlayer(g, 'a')!.cash).toBe(beforeCash + 77);
+    expect(g.drawnCard?.status).toBe('resolved');
+  });
+
+  it('confirms a pending card automatically on timeout', () => {
+    let g = act(newGame({ turnSeconds: 30 }), 'a', { type: 'start_game' });
+    const card = g.cards.find((candidate) => candidate.deck === 'ledger'
+      && candidate.effect.kind === 'cash' && candidate.effect.amount > 0)!;
+    g.ledgerDeck = [card.id];
+    g = act(primeRollTo(g, 'a', 2), 'a', { type: 'roll_dice' });
+    const beforeEffectCash = getPlayer(g, 'a')!.cash;
+
+    g = act(g, 'server', { type: 'timeout' });
+    expect(getPlayer(g, 'a')!.cash).toBe(beforeEffectCash + card.effect.amount);
+    expect(g.drawnCard?.status).toBe('resolved');
+    expect(g.log.some((entry) => entry.text.includes('confirms the card automatically'))).toBe(true);
+  });
+
+  it('uses a skip card on the next complete turn and then restores normal order', () => {
+    let g = act(newGame(), 'a', { type: 'start_game' });
+    const card = makeCard({
+      deck: 'fortune',
+      text: 'Pause for a full turn.',
+      effect: { kind: 'skip_turn' },
+    }, 'skip-f');
+    g.cards.push(card);
+    g.fortuneDeck = [card.id];
+    g = act(primeRollTo(g, 'a', 7), 'a', { type: 'roll_dice' });
+    g = act(g, 'a', { type: 'confirm_card' });
+    expect(getPlayer(g, 'a')!.turnsToSkip).toBe(1);
+
+    g.phase = 'post_roll';
+    g = act(g, 'a', { type: 'end_turn' });
+    expect(g.turnSeat).toBe(1);
+    g.phase = 'post_roll';
+    g = act(g, 'b', { type: 'end_turn' });
+    expect(g.turnSeat).toBe(2);
+    g.phase = 'post_roll';
+    g = act(g, 'c', { type: 'end_turn' });
+    expect(g.turnSeat).toBe(1);
+    expect(getPlayer(g, 'a')!.turnsToSkip).toBe(0);
+    expect(g.log.some((entry) => entry.text === 'Ada skips this turn.')).toBe(true);
   });
 });
 
@@ -473,6 +567,7 @@ describe('determinism', () => {
         const cur = g.players.find((p) => p.seat === g.turnSeat && !p.bankrupt);
         if (!cur || g.phase === 'game_over') break;
         if (g.phase === 'pre_roll') g = act(g, cur.id, { type: 'roll_dice' });
+        else if (g.phase === 'awaiting_card') g = act(g, cur.id, { type: 'confirm_card' });
         else if (g.phase === 'awaiting_buy') g = act(g, cur.id, { type: 'buy_property' });
         else if (g.phase === 'auction') {
           const bidder = g.auction!.activeIds[g.auction!.turnIndex]!;
@@ -523,6 +618,9 @@ describe('host customisation', () => {
     expect(sanitizeCardInput({ deck: 'x', text: 'hi', effect: { kind: 'cash', amount: 1 } })).toMatch(/deck/i);
     expect(sanitizeCardInput({ deck: 'ledger', text: 'go', effect: { kind: 'move_to', tile: 99 } })).toMatch(/tile/i);
     expect(sanitizeCardInput({ deck: 'ledger', text: 'ok', effect: { kind: 'reprieve' } })).toMatchObject({ deck: 'ledger' });
+    expect(sanitizeCardInput({ deck: 'fortune', text: 'wait', effect: { kind: 'skip_turn' } })).toMatchObject({
+      effect: { kind: 'skip_turn' },
+    });
   });
 });
 

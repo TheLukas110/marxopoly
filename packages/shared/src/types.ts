@@ -100,6 +100,8 @@ export type CardEffect =
   | { kind: 'advance_nearest'; target: 'depot' | 'works'; multiplier: number }
   | { kind: 'goto_holding' }
   | { kind: 'reprieve' }
+  /** Skip the player's next complete turn. */
+  | { kind: 'skip_turn' }
   | { kind: 'assessment'; perHouse: number; perHotel: number };
 
 export type CardEffectKind = CardEffect['kind'];
@@ -135,6 +137,8 @@ export interface Player {
   /** Turns already spent in the holding yard (0..3). */
   holdingTurns: number;
   reprieveCards: number;
+  /** Complete future turns that must be skipped before this player may act. */
+  turnsToSkip: number;
   bankrupt: boolean;
   connected: boolean;
   isBot: boolean;
@@ -213,6 +217,7 @@ export interface Debt {
 export type Phase =
   | 'lobby'
   | 'pre_roll'
+  | 'awaiting_card'
   | 'awaiting_buy'
   | 'auction'
   | 'debt'
@@ -275,6 +280,14 @@ export interface GameStats {
   netWorthHistory: NetWorthSnapshot[];
 }
 
+export interface DrawnCardState {
+  deck: 'fortune' | 'ledger';
+  cardId: string;
+  /** The player who must confirm this card while it is pending. */
+  playerId: string;
+  status: 'pending' | 'resolved';
+}
+
 export interface GameState {
   id: string;
   phase: Phase;
@@ -293,9 +306,8 @@ export interface GameState {
   trades: TradeOffer[];
   fortuneDeck: string[];
   ledgerDeck: string[];
-  /** Card currently shown to the table, cleared when the turn advances. */
   /** Most recently drawn card, retained until another card is drawn. */
-  drawnCard: { deck: 'fortune' | 'ledger'; cardId: string } | null;
+  drawnCard: DrawnCardState | null;
   plazaPot: number;
   log: LogEntry[];
   logSeq: number;
@@ -321,6 +333,7 @@ export interface GameState {
 export type GameAction =
   | { type: 'start_game' }
   | { type: 'roll_dice' }
+  | { type: 'confirm_card' }
   | { type: 'buy_property' }
   | { type: 'decline_property' }
   | { type: 'bid'; amount: number }

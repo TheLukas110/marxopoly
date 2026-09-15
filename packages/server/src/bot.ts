@@ -24,6 +24,10 @@ export function decideBotAction(state: GameState, playerId: string, tradeMemory:
   const me = getPlayer(state, playerId);
   if (!me || me.bankrupt || state.phase === 'lobby' || state.phase === 'game_over') return null;
 
+  if (state.phase === 'awaiting_card' && state.drawnCard?.playerId === playerId) {
+    return { type: 'confirm_card' };
+  }
+
   // Answer any trade offers pointed at us first.
   const offer = state.trades.find((t) => t.toId === playerId);
   if (offer) {

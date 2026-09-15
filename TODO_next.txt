@@ -83,8 +83,8 @@
     in `GameState.tileNames`.
 
 [x] STATUS-003 | SPIELABLAUF | Phasen und zentrale Regeln
-  - Die Phasen sind `lobby`, `pre_roll`, `awaiting_buy`, `auction`, `debt`,
-    `post_roll` und `game_over`.
+  - Die Phasen sind `lobby`, `pre_roll`, `awaiting_buy`, `awaiting_card`,
+    `auction`, `debt`, `post_roll` und `game_over`.
   - Nur der Host kann ein Spiel starten; mindestens zwei Spieler sind nötig.
     Unterstützt werden zwei bis acht Plätze.
   - Würfeln, Bewegung, Gehalt beim Überqueren von Start, optional doppeltes
@@ -127,13 +127,16 @@
 [x] STATUS-005 | KARTEN | Fortune, Ledger und Karteneditor
   - Es existieren zwei Decks mit jeweils zwölf Standardkarten. Sie werden mit
     dem Spiel-Seed gemischt und nach Verbrauch erneut verwendet.
-  - Neun Effekttypen sind implementiert: Geld von oder an die Bank, Geld von
+  - Zehn Effekttypen sind implementiert: Geld von oder an die Bank, Geld von
     oder an alle Mitspieler, Bewegung zu einem Feld, relative Bewegung,
     nächstes Depot/Werk mit Multiplikator, Holding Yard, Reprieve-Karte und
-    gebäudeabhängige Abgabe.
-  - Eine gezogene Karte wird sofort serverseitig ausgeführt. Die zuletzt
-    gezogene Karte bleibt als `drawnCard` für die Anzeige erhalten; es gibt
-    aktuell keinen separaten Aufdecken- oder Bestätigen-Schritt.
+    gebäudeabhängige Abgabe sowie das Überspringen des nächsten vollständigen
+    Zuges.
+  - Eine gezogene Karte wird im autoritativen Zustand zunächst als ausstehend
+    geführt und angezeigt. Erst die Bestätigung des aktiven Spielers führt den
+    Effekt genau einmal aus; Timeout und Bots bestätigen automatisch.
+  - Ausstehende und bestätigte Karten bleiben über Reconnect und Seitenneuladen
+    erhalten, ohne dass die Wirkung doppelt ausgeführt oder verloren wird.
   - Der Host kann in der Lobby eigene Fortune-/Ledger-Karten anlegen und Karten
     löschen. Eingaben und Effektparameter werden serverseitig validiert; jedes
     Deck muss mindestens eine Karte behalten.
@@ -208,7 +211,8 @@
 
 [x] STATUS-009 | BOTS | Automatische Mitspieler und Verhandlungen
   - Bots können würfeln, Grundstücke kaufen oder ablehnen, Auktionen bedienen,
-    bauen, Schulden durch Verkauf oder Hypothek begleichen und Züge beenden.
+    Karten bestätigen, bauen, Schulden durch Verkauf oder Hypothek begleichen
+    und Züge beenden.
   - Kauf-, Bau- und Auktionsentscheidungen halten Bargeldreserven zurück und
     berücksichtigen Gruppenvervollständigung und Grundstückswert.
   - Bots können Geldangebote und Grundstückstausch vorschlagen, Angebote
@@ -256,7 +260,10 @@
   - Der Spielraum besitzt Desktop-Seitenleisten und eine mobile Navigation für
     Brett, alle Grundstücke, Spieler und Tisch/Chat.
   - Die Aktionsleiste zeigt aktuellen Spieler, Phase, Restzeit und nur die im
-    Zustand sinnvollen Aktionen für Würfeln, Kauf, Zugende, Holding und Schuld.
+    Zustand sinnvollen Aktionen für Würfeln, Kartenbestätigung, Kauf, Zugende,
+    Holding und Schuld.
+  - Ausstehende und bestätigte Karten werden auf dem 2D- und 3D-Brett sichtbar
+    sowie für assistive Technik als Statusmeldung ausgegeben.
   - Grundstücksdetails, Eigentümer, Preis, Miete, Häuser, Hotel und Hypothek
     sind per Maus und Tastatur erreichbar. Die mobile Übersicht zeigt alle 28
     kaufbaren Felder ohne vorgeschalteten Filter.
@@ -359,7 +366,7 @@
 
 [x] STATUS-016 | PRÜFUNGEN | Automatisierte Absicherung
   - `pnpm test` baut Shared und führt Engine-, Server- und Clienttests aus.
-  - Am 15.09.2026 waren 44 Engine-Tests, 24 Server-Tests und 26 Client-Tests
+  - Am 15.09.2026 waren 48 Engine-Tests, 26 Server-Tests und 27 Client-Tests
     erfolgreich.
   - Engine-Tests decken unter anderem Zugfolge, Mieten, Bauen, Hypotheken,
     Auktionen, Handel, Schuld, Insolvenz, Holding, Karten, Anpassungen,
@@ -369,9 +376,9 @@
   - Clienttests decken Basic Auth, Pages-Konfiguration, Sitzspeicherung,
     2D-/3D-Auswahl, alle elf Welten, Kamera, Picking, Labelkollisionen,
     Ressourcenfreigabe, Barrierefreiheit und mobile Grundstücke ab.
-  - `pnpm test:browser` führt Playwright mit 67 Chromium-Fällen aus: je elf
-    Welten fünf 2D-Viewports und einen 3D-Start sowie einen vollständigen
-    Zwei-Profil-Multiplayerfall.
+  - `pnpm test:browser` führt Playwright mit 68 Chromium-Fällen aus: je elf
+    Welten fünf 2D-Viewports und einen 3D-Start, einen vollständigen
+    Zwei-Profil-Multiplayerfall sowie optional den externen Hosted-Test.
   - Vor Abschluss eines Codetickets sind mindestens der relevante Test,
     `pnpm typecheck` und `pnpm build` auszuführen. Bei Änderungen an Welten oder
     Multiplayer ist zusätzlich `pnpm test:browser` relevant.
@@ -488,18 +495,16 @@
 ## VALIDATION BASELINE
 
 - Stand der lokalen Prüfung: 15.09.2026.
-- `pnpm test` war erfolgreich: 44 Engine-Tests, 24 Server-Tests und 26
+- `pnpm test` war erfolgreich: 48 Engine-Tests, 26 Server-Tests und 27
   Client-Tests.
 - `pnpm typecheck` war für Shared, Server und Client erfolgreich.
 - `pnpm build` war erfolgreich und erzeugte Shared, Server sowie den
   Standalone-Client.
-- Alle 67 Chromium-Fälle meldeten Erfolg: je elf Welten bei 296x700, 390x844,
-  600x800, 800x900 und 600x300 in 2D, alle elf 3D-Starts sowie Raumbeitritt,
-  Spielstart, Chat, Würfeln und Reconnect mit zwei isolierten Profilen.
-- Bekannte Prüfgrenze: Unter Windows beendete sich der Playwright-Aufruf nach
-  dem erfolgreichen 67. Fall nicht selbst und musste nach der Testausgabe
-  abgebrochen werden. Die einzelnen Fälle waren grün, der Gesamtprozess lieferte
-  dadurch in diesem Lauf aber keinen regulären Exitcode 0.
+- `pnpm test:browser` endete regulär mit Exitcode 0: 67 Chromium-Fälle waren
+  erfolgreich, der nur mit externen Zugangsdaten ausführbare Hosted-Test wurde
+  übersprungen. Geprüft wurden je elf Welten bei 296x700, 390x844, 600x800,
+  800x900 und 600x300 in 2D, alle elf 3D-Starts sowie Raumbeitritt, Spielstart,
+  Chat, Würfeln und Reconnect mit zwei isolierten Profilen.
 - Die schnellen 3D-Geometrie- und Renderingtests verwenden Mocks oder einen
   Softwarepfad; die Playwright-Fälle prüfen zusätzlich den Start in Chromium.
 
@@ -559,15 +564,15 @@
     wiederverwendbare Lauf `pnpm test:browser:live` prüft außerdem fehlende und
     falsche Zugangsdaten sowie den direkten Zugriff auf ein gebautes Asset.
 
-[ ] TASK-007 | GAMEPLAY | Kartenablauf um Bestätigung und neue Effekte erweitern
-  - Status: Zwei serverseitig gemischte Decks, 24 Standardkarten, neun
-    Effekttypen, Karteneditor, Protokoll und Anzeige sind bereits vorhanden.
-  - Ergänzung: Eine gezogene Karte wird zunächst als ausstehend angezeigt und
-    erst nach Bestätigung durch den aktiven Spieler ausgeführt.
-  - Timeout und Botlogik müssen eine ausstehende Karte automatisch bestätigen,
-    damit ein getrennter Client das Spiel nicht dauerhaft blockiert.
-  - Als neuer Effekt wird mindestens das Überspringen eines vollständigen Zuges
-    unterstützt und im Karteneditor konfigurierbar gemacht.
+[x] TASK-007 | GAMEPLAY | Kartenablauf um Bestätigung und neue Effekte erweitern
+  - Status: Umgesetzt am 15.09.2026. Zwei serverseitig gemischte Decks mit 24
+    Standardkarten unterstützen nun zehn Effekttypen.
+  - Eine gezogene Karte wird zunächst als ausstehend angezeigt und erst nach
+    Bestätigung durch den aktiven Spieler ausgeführt.
+  - Timeout und Botlogik bestätigen eine ausstehende Karte automatisch, damit
+    ein getrennter Client das Spiel nicht dauerhaft blockiert.
+  - Das Überspringen des nächsten vollständigen Zuges ist als neuer Effekt
+    implementiert und im Karteneditor konfigurierbar.
   - Ausstehende und bestätigte Karten werden im autoritativen Zustand so
     abgebildet, dass Reconnect und Seitenneuladen keine Wirkung doppelt
     ausführen oder verlieren.

@@ -237,8 +237,10 @@ plaza pot, turn timer, max players) are set by the host in the lobby.
 
 The host can also **Customise** the table from the lobby: rename any street/depot/works tile, and
 view, delete or create Fortune / Ledger cards. New cards are built from a small form (deck, text,
-and one of the nine effect types with its parameters) and validated on the server. Everything is
-locked once the game starts; `packages/shared/src/data/cards.ts` and `board.ts` still hold the
+and one of the ten effect types with its parameters) and validated on the server. A drawn card is
+shown to the whole table and applied only when its active player confirms it; the timer and bots
+confirm automatically. Effects can also make a player skip their next complete turn. Everything
+is locked once the game starts; `packages/shared/src/data/cards.ts` and `board.ts` still hold the
 defaults every game seeds from.
 
 ## The board
@@ -250,7 +252,7 @@ corners, and seven card tiles.
   then follow a five-step ladder through four houses to a hotel.
 - **Depots** pay 25 / 50 / 100 / 200 depending on how many of the four you hold.
 - **Works** pay 4x or 10x the dice roll depending on whether you hold one or both.
-- **Fortune** and **Ledger** are the two card decks (sixteen each by default; host-editable).
+- **Fortune** and **Ledger** are the two card decks (twelve each by default; host-editable).
 - The **Holding Yard** detains you: roll doubles, pay the fine, or spend a reprieve card. After
   three failed attempts you pay and move.
 
@@ -321,8 +323,8 @@ if (result.ok) state = result.state;
 an error straight back to the offending client and keep going. All randomness comes from
 `state.rngState`, so identical inputs give identical games.
 
-The phases are `lobby -> pre_roll -> (awaiting_buy | auction | debt) -> post_roll -> ... -> game_over`,
-and every action asserts the phase it is legal in.
+The phases are `lobby -> pre_roll -> (awaiting_card | awaiting_buy | auction | debt) -> post_roll
+-> ... -> game_over`, and every action asserts the phase it is legal in.
 
 ## Testing
 

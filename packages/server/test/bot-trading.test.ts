@@ -21,6 +21,14 @@ function offer(state: GameState,give: TradeSide,receive: TradeSide) {
   return act(state,'a',{type:'propose_trade',toId:'b',give,receive});
 }
 
+test('bot confirms its pending card before taking another action',()=>{
+  const state=game();
+  const card=state.cards.find(candidate=>candidate.deck==='fortune')!;
+  state.phase='awaiting_card';
+  state.drawnCard={deck:'fortune',cardId:card.id,playerId:'b',status:'pending'};
+  assert.deepEqual(decideBotAction(state,'b'),{type:'confirm_card'});
+});
+
 test('bot proposes an affordable group-completing offer with a note and then continues its turn',()=>{
   let state=game();const memory=createBotTradeMemory(),before=structuredClone(state);
   const action=decideBotAction(state,'b',memory);
