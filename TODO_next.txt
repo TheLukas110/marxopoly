@@ -153,8 +153,8 @@
 
 [ ] TASK-006 | DEPLOYMENT | Geschützten Hosted-Betrieb einrichten und prüfen
   - Status: Repository-seitig vorbereitet und lokal geprüft; externes Deployment
-    ist mangels Hosting-Zielen, Kontozugriffen, realen Origins und Zugangsdaten
-    blockiert und deshalb noch nicht als abgeschlossen markiert.
+    ist teilweise geprüft, aber mangels Dashboardzugriff und gültiger Zugangsdaten
+    noch nicht als abgeschlossen markiert.
   - Frontend: Cloudflare Pages mit `functions/_middleware.js` und
     `_routes.json`; alle Frontend-Routen einschließlich Assets müssen Basic Auth
     verlangen.
@@ -191,9 +191,14 @@
     Browserprofile haben Raumbeitritt,
     Spielstart, Chat, Würfeln und Reconnect erfolgreich durchlaufen.
   - Zum Abschluss erforderlich: Cloudflare-Pages-Projekt und Backenddienst
-    bereitstellen, reale Preview-/Production-Origins und Backend-HTTPS-URL
-    nennen, `BASIC_AUTH_USER`/`BASIC_AUTH_PASS` als verschlüsselte Variablen
-    setzen und die beschriebenen Prüfungen gegen die echten URLs wiederholen.
+    vollständig verbinden, `CLIENT_ORIGIN` auf
+    `https://www.marxopoly.de,https://marxopoly.pages.dev` setzen und
+    `VITE_SERVER_URL=https://marxopoly.onrender.com` verwenden. Die Domain ist
+    derzeit noch `NXDOMAIN`. Pages liefert ohne Zugangsdaten auf `/` und einer
+    direkten Asset-URL korrekt `401`; Render liefert auf `/health` korrekt `200`,
+    lehnt aber derzeit auch beide vorgesehenen Frontend-Origins mit `403` ab.
+    Abschließend korrekte Zugangsdaten und den Spielablauf gegen die echten URLs
+    prüfen.
 
 ==================================================
 ## BEKANNTE GRENZEN

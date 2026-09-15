@@ -4,6 +4,26 @@ The frontend runs on Cloudflare Pages. Multiplayer runs on a **separate, always-
 Node.js server** with HTTPS and WebSocket support. Pages cannot run this repository's
 Express/Socket.IO server. You need both services for a playable deployment.
 
+## Current production targets
+
+| Role | Origin |
+| --- | --- |
+| Custom frontend | `https://www.marxopoly.de` |
+| Cloudflare Pages | `https://marxopoly.pages.dev` |
+| Render backend | `https://marxopoly.onrender.com` |
+
+Use `VITE_SERVER_URL=https://marxopoly.onrender.com` for the Pages production
+build. The Render production service must use
+`CLIENT_ORIGIN=https://www.marxopoly.de,https://marxopoly.pages.dev`. These are
+origins, so they deliberately have no trailing slash.
+
+External verification on 2026-09-15 found that Pages correctly returned `401`
+for both `/` and a direct asset request, while Render returned `200` from
+`/health`, `404` from `/`, and `403` for requests without an allowed Origin.
+At that time, Render also rejected both intended frontend origins and the custom
+domain returned `NXDOMAIN`; the Render allowlist and Cloudflare DNS therefore
+still needed to be configured.
+
 ## Review the deployment branch first
 
 The deployment work currently lives on `agent/TASK-006-hosted-betrieb` and includes
