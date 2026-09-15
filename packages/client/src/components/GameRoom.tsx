@@ -18,6 +18,7 @@ import InviteLink from './InviteLink.js';
 import GameDialog from './GameDialog.js';
 import GameIcon from './GameIcon.js';
 import SpectatorPanel from './SpectatorPanel.js';
+import TurnReminderSettings from './TurnReminderSettings.js';
 import { netWorth, ownableTile } from '@marxopoly/shared';
 import { money } from '../lib.js';
 
@@ -33,6 +34,7 @@ export default function GameRoom() {
   const [tradeWith, setTradeWith] = useState<string | null>(null);
   const [showCards, setShowCards] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [showReminders, setShowReminders] = useState(false);
   const [choosingTrade, setChoosingTrade] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<'board' | 'properties' | 'players' | 'table'>('board');
   const [unreadChat, setUnreadChat] = useState(0);
@@ -90,6 +92,7 @@ export default function GameRoom() {
           <div className="panel table-tools">
             <button onClick={() => setShowRules(true)}><GameIcon name="settings" /><span>Table rules</span><span aria-hidden="true">↗</span></button>
             <button onClick={() => setShowCards(true)}><GameIcon name="cards" /><span>Fortune & Ledger cards</span><span aria-hidden="true">↗</span></button>
+            <button onClick={() => setShowReminders(true)}><GameIcon name="settings" /><span>Turn reminders</span><span aria-hidden="true">↗</span></button>
           </div>
           <LogPanel state={state} onUnreadChange={setUnreadChat} />
           <div className="table-exit">
@@ -127,6 +130,7 @@ export default function GameRoom() {
         ['Bonus on exact Start', state.settings.doubleOnExactStart], ['House supply', state.settings.houseSupply || 'Unlimited'],
         ['Hotel supply', state.settings.hotelSupply || 'Unlimited'], ['Maximum players', state.settings.maxPlayers],
       ].map(([label, value]) => <div key={String(label)}><dt>{label}</dt><dd>{typeof value === 'boolean' ? value ? 'On' : 'Off' : value}</dd></div>)}</dl></GameDialog>}
+      {showReminders && <GameDialog title="Turn reminders" onClose={() => setShowReminders(false)}><TurnReminderSettings /></GameDialog>}
       {managing && myId && <ManagePanel state={state} myId={myId} onClose={() => setManaging(false)} />}
       {tradeWith && myId && (
         <TradePanel state={state} myId={myId} partnerId={tradeWith} onClose={() => setTradeWith(null)} />

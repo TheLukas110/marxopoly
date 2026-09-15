@@ -6,6 +6,7 @@ import GameRoom from './components/GameRoom.js';
 import Toast from './components/Toast.js';
 import ThemeToggle from './components/ThemeToggle.js';
 import AccountPanel from './components/AccountPanel.js';
+import TurnReminderManager from './components/TurnReminderManager.js';
 
 export default function App() {
   const game = useStore((s) => s.game);
@@ -21,6 +22,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <TurnReminderManager />
       {!connected && <div className="banner">Reconnecting to the server…</div>}
       <AccountPanel />
       {!roomId || !game ? <Home /> : game.phase === 'lobby' ? <Lobby /> : <GameRoom />}
