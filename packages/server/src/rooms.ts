@@ -16,6 +16,8 @@ import {
   type GameSettings,
   type GameState,
   type RoomSummary,
+  type SpectatorInfo,
+  type SpectatorPolicy,
 } from '@marxopoly/shared';
 import { config } from './config.js';
 import { decideBotAction } from './bot.js';
@@ -25,6 +27,12 @@ const BOT_NAMES = ['Mira', 'Oslo', 'Pike', 'Junot', 'Wren', 'Cass', 'Bly', 'Nero
 
 /** Hard ceiling on live rooms, so room-create spam cannot exhaust memory. */
 const MAX_ROOMS = 400;
+const DEFAULT_MAX_SPECTATORS = 20;
+
+export interface SpectatorSession extends SpectatorInfo {
+  token: string;
+  socketId: string | null;
+}
 
 export interface Room {
   id: string;
@@ -42,6 +50,11 @@ export interface Room {
   chat: ChatMessage[];
   /** Socket ids currently watching without a seat. */
   spectatorSockets: Set<string>;
+  /** spectatorId -> reconnectable watch-only session. */
+  spectators: Map<string, SpectatorSession>;
+  spectatorPolicy: SpectatorPolicy;
+  /** spectatorId -> timer that releases a disconnected viewer reservation. */
+  spectatorDropTimers: Map<string, NodeJS.Timeout>;
   /** playerId -> timer that forfeits the seat if they never come back. */
   dropTimers: Map<string, NodeJS.Timeout>;
   botTimer: NodeJS.Timeout | null;
@@ -72,6 +85,7 @@ export class RoomManager {
     this.ticker = null;
     for (const room of this.rooms.values()) {
       for (const timer of room.dropTimers.values()) clearTimeout(timer);
+      for (const timer of room.spectatorDropTimers.values()) clearTimeout(timer);
       if (room.botTimer) clearTimeout(room.botTimer);
     }
   }
@@ -94,6 +108,9 @@ export class RoomManager {
         playerCount: r.state.players.filter((p) => !p.bankrupt).length,
         maxPlayers: r.state.settings.maxPlayers,
         spectatorCount: r.spectatorSockets.size,
+        spectatorReservedCount: r.spectators.size,
+        spectatorLimit: r.spectatorPolicy.maxSpectators,
+        spectatorOpen: r.spectatorPolicy.accepting,
         phase: r.state.phase,
         isPrivate: r.isPrivate,
         createdAt: r.createdAt,
@@ -136,6 +153,9 @@ export class RoomManager {
       sockets: new Map(),
       chat: [],
       spectatorSockets: new Set(),
+      spectators: new Map(),
+      spectatorPolicy: { maxSpectators: DEFAULT_MAX_SPECTATORS, accepting: true },
+      spectatorDropTimers: new Map(),
       dropTimers: new Map(),
       botTimer: null,
       botTradeMemory: createBotTradeMemory(),
@@ -152,7 +172,7 @@ export class RoomManager {
     socketId: string,
   ):
     | { ok: true; room: Room; playerId: string; token: string; displacedSocketId?: string }
-    | { ok: true; room: Room; spectator: true }
+    | { ok: true; room: Room; spectator: true; playerId: string; token: string; displacedSocketId?: string }
     | { ok: false; error: string } {
     const room = this.rooms.get(roomId.toUpperCase());
     if (!room) return { ok: false, error: 'That room does not exist.' };
@@ -178,15 +198,46 @@ export class RoomManager {
           ? { ok: true, room, playerId, token, displacedSocketId: previous }
           : { ok: true, room, playerId, token };
       }
+      for (const spectator of room.spectators.values()) {
+        if (spectator.token !== token) continue;
+        const timer = room.spectatorDropTimers.get(spectator.id);
+        if (timer) {
+          clearTimeout(timer);
+          room.spectatorDropTimers.delete(spectator.id);
+        }
+        const previous = spectator.socketId;
+        if (previous) room.spectatorSockets.delete(previous);
+        spectator.socketId = socketId;
+        spectator.connected = true;
+        room.spectatorSockets.add(socketId);
+        room.lastActivity = Date.now();
+        this.emit(room);
+        return previous && previous !== socketId
+          ? { ok: true, room, spectator: true, playerId: spectator.id, token, displacedSocketId: previous }
+          : { ok: true, room, spectator: true, playerId: spectator.id, token };
+      }
       return { ok: false, error: 'This seat is no longer available. You can forget it and join the table again.' };
     }
 
     // A game already under way has no seats to give — join as a viewer instead.
     if (room.state.phase !== 'lobby') {
+      if (!room.spectatorPolicy.accepting) return { ok: false, error: 'This table is not accepting new spectators.' };
+      if (room.spectators.size >= room.spectatorPolicy.maxSpectators) {
+        return { ok: false, error: 'This table has reached its spectator limit.' };
+      }
+      const spectatorId = randomUUID();
+      const spectatorToken = randomUUID();
+      room.spectators.set(spectatorId, {
+        id: spectatorId,
+        name: clean(playerName) || 'Viewer',
+        connected: true,
+        token: spectatorToken,
+        socketId,
+      });
       room.spectatorSockets.add(socketId);
       room.lastActivity = Date.now();
       this.emit(room);
-      return { ok: true, room, spectator: true };
+      return { ok: true, room, spectator: true, playerId: spectatorId, token: spectatorToken };
     }
     if (room.state.players.length >= room.state.settings.maxPlayers) {
       return { ok: false, error: 'That table is full.' };
@@ -230,6 +281,28 @@ export class RoomManager {
     if (room.hostId !== requesterId) return 'Only the host can change the rules.';
     if (room.state.phase !== 'lobby') return 'The rules are locked once the game starts.';
     room.state = applySettings(room.state, settings);
+    this.emit(room);
+    return null;
+  }
+
+  updateSpectatorPolicy(room: Room, requesterId: string, settings: Partial<SpectatorPolicy>): string | null {
+    if (room.hostId !== requesterId) return 'Only the host can change spectator access.';
+    const next = { ...room.spectatorPolicy };
+    if (typeof settings.accepting === 'boolean') next.accepting = settings.accepting;
+    if (typeof settings.maxSpectators === 'number' && Number.isFinite(settings.maxSpectators)) {
+      next.maxSpectators = Math.min(100, Math.max(0, Math.round(settings.maxSpectators)));
+    }
+    room.spectatorPolicy = next;
+    room.lastActivity = Date.now();
+    this.emit(room);
+    return null;
+  }
+
+  kickSpectator(room: Room, requesterId: string, spectatorId: string): string | null {
+    if (room.hostId !== requesterId) return 'Only the host can remove spectators.';
+    if (!room.spectators.has(spectatorId)) return 'That spectator is no longer here.';
+    this.removeSpectator(room, spectatorId);
+    room.lastActivity = Date.now();
     this.emit(room);
     return null;
   }
@@ -297,9 +370,31 @@ export class RoomManager {
     }
   }
 
-  /** A viewer closed the tab or left; drop them from the watch set. */
-  leaveSpectator(room: Room, socketId: string): void {
-    if (!room.spectatorSockets.delete(socketId)) return;
+  /** A viewer explicitly left; remove both the role and its reconnect token. */
+  leaveSpectator(room: Room, spectatorId: string): void {
+    if (!room.spectators.has(spectatorId)) return;
+    this.removeSpectator(room, spectatorId);
+    room.lastActivity = Date.now();
+    this.emit(room);
+  }
+
+  /** Keep a disconnected viewer reservation briefly so reloads retain identity. */
+  markSpectatorDisconnected(room: Room, spectatorId: string): void {
+    const spectator = room.spectators.get(spectatorId);
+    if (!spectator) return;
+    if (spectator.socketId) room.spectatorSockets.delete(spectator.socketId);
+    spectator.socketId = null;
+    spectator.connected = false;
+    const existing = room.spectatorDropTimers.get(spectatorId);
+    if (existing) clearTimeout(existing);
+    room.spectatorDropTimers.set(spectatorId, setTimeout(() => {
+      room.spectatorDropTimers.delete(spectatorId);
+      const current = room.spectators.get(spectatorId);
+      if (!current || current.connected) return;
+      room.spectators.delete(spectatorId);
+      room.lastActivity = Date.now();
+      this.emit(room);
+    }, config.reconnectGraceMs));
     room.lastActivity = Date.now();
     this.emit(room);
   }
@@ -417,12 +512,23 @@ export class RoomManager {
     const room = this.rooms.get(roomId);
     if (!room) return;
     for (const timer of room.dropTimers.values()) clearTimeout(timer);
+    for (const timer of room.spectatorDropTimers.values()) clearTimeout(timer);
     if (room.botTimer) clearTimeout(room.botTimer);
     this.rooms.delete(roomId);
   }
 
   private emit(room: Room): void {
     this.onChange(room);
+  }
+
+  private removeSpectator(room: Room, spectatorId: string): void {
+    const spectator = room.spectators.get(spectatorId);
+    if (!spectator) return;
+    if (spectator.socketId) room.spectatorSockets.delete(spectator.socketId);
+    const timer = room.spectatorDropTimers.get(spectatorId);
+    if (timer) clearTimeout(timer);
+    room.spectatorDropTimers.delete(spectatorId);
+    room.spectators.delete(spectatorId);
   }
 }
 

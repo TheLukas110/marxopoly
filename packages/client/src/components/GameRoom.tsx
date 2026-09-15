@@ -17,6 +17,7 @@ import BoardViewToggle from './BoardViewToggle.js';
 import InviteLink from './InviteLink.js';
 import GameDialog from './GameDialog.js';
 import GameIcon from './GameIcon.js';
+import SpectatorPanel from './SpectatorPanel.js';
 import { netWorth, ownableTile } from '@marxopoly/shared';
 import { money } from '../lib.js';
 
@@ -103,6 +104,7 @@ export default function GameRoom() {
 
         <aside className="col right portfolio-sidebar" aria-label="Players, trades and properties">
           <PlayerList state={state} myId={myId} onTrade={setTradeWith} />
+          <SpectatorPanel />
           <section className="panel trade-hub" aria-label="Trades">
             <div className="panel-heading"><h2><GameIcon name="trade" />Trades{incoming > 0 && <span className="notification-count">{incoming}</span>}</h2><button className="btn small" disabled={!canCreateTrade || !partners.length} onClick={() => setChoosingTrade(true)}>+ Create</button></div>
             {offers.length === 0 ? <p className="muted small">{canReportBankrupt ? 'Make a deal. Complete your next set.' : 'Trade offers appear here when you play.'}</p> : myId && <TradeInbox state={state} myId={myId} />}

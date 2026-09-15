@@ -13,6 +13,8 @@ import type {
   GameState,
   RoomSummary,
   ServerToClientEvents,
+  SpectatorInfo,
+  SpectatorPolicy,
 } from '@marxopoly/shared';
 
 const SERVER_URL = (import.meta.env.VITE_SERVER_URL ?? '').trim().replace(/\/$/, '');
@@ -51,6 +53,8 @@ export interface ClientStore {
   hostId: string | null;
   /** True when this tab joined a game in progress as a watch-only viewer. */
   spectator: boolean;
+  spectators: SpectatorInfo[];
+  spectatorPolicy: SpectatorPolicy;
   game: GameState | null;
   rooms: RoomSummary[];
   chat: ChatMessage[];
@@ -73,6 +77,8 @@ let state: ClientStore = {
   playerId: null,
   hostId: null,
   spectator: false,
+  spectators: [],
+  spectatorPolicy: { maxSpectators: 20, accepting: true },
   game: null,
   rooms: [],
   chat: [],
@@ -156,8 +162,8 @@ socket.on('room:joined', ({ roomId, playerId, token, spectator }) => {
   set({ savedSessions: readSavedSessions(), roomId, playerId, spectator: !!spectator, error: null, joining: false, invitedRoomId: null });
 });
 
-socket.on('room:state', ({ state: game, hostId, roomName }) => {
-  set({ game, hostId, roomName });
+socket.on('room:state', ({ state: game, hostId, roomName, spectators, spectatorPolicy }) => {
+  set({ game, hostId, roomName, spectators, spectatorPolicy });
 });
 
 socket.on('room:chat', (message) => {
@@ -174,7 +180,7 @@ socket.on('room:error', ({ message }) => {
 
 socket.on('room:left', () => {
   writeSession(null);
-  set({ roomId: null, playerId: null, spectator: false, game: null, chat: [], hostId: null });
+  set({ roomId: null, playerId: null, spectator: false, spectators: [], game: null, chat: [], hostId: null });
 });
 
 // ---------------------------------------------------------------------------
@@ -233,7 +239,7 @@ export function leaveRoom(): void {
   if (session) dismissSavedSession(session);
   socket.emit('room:leave');
   writeSession(null);
-  set({ roomId: null, playerId: null, spectator: false, game: null, chat: [], hostId: null });
+  set({ roomId: null, playerId: null, spectator: false, spectators: [], game: null, chat: [], hostId: null });
 }
 
 /**
@@ -265,6 +271,14 @@ export function addBot(): void {
 
 export function kickPlayer(playerId: string): void {
   socket.emit('room:kick', playerId);
+}
+
+export function updateSpectatorPolicy(settings: Partial<SpectatorPolicy>): void {
+  socket.emit('room:spectator_settings', settings);
+}
+
+export function kickSpectator(spectatorId: string): void {
+  socket.emit('room:kick_spectator', spectatorId);
 }
 
 export function renameTile(tileId: number, name: string): void {

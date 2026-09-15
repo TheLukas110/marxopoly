@@ -277,6 +277,13 @@ button:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focu
 .seat-name { flex: 1; font-weight: 700; }
 .settings.numbers { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; margin-top: 16px; }
 .auction-mode em { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.settings-subhead { margin: 20px 0 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+.spectator-controls { display: grid; grid-template-columns: minmax(0, 1fr) 90px; gap: 10px; margin: 12px 0; align-items: end; }
+.spectator-controls .field, .spectator-controls .check { margin: 0; }
+.spectator-list { display: flex; flex-direction: column; gap: 7px; margin: 10px 0 0; padding: 0; list-style: none; }
+.spectator-list li { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.spectator-list li > span:first-child { flex: 1; overflow-wrap: anywhere; font-weight: 650; }
+.spectator-empty { margin-bottom: 0; }
 
 /* ================================================================== game */
 .game { height: 100vh; height: 100dvh; min-height: 660px; display: flex; flex-direction: column; }
