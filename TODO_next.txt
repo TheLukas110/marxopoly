@@ -28,12 +28,367 @@
 
 - Projekt: Marxopoly
 - Stand: 15.09.2026
-- Zweck dieser Datei: Arbeitsauftrag und Übergabe für die nächsten Agenten.
-- Primärer bisheriger Auftrag: zwei gemeldete Darstellungsbugs beheben und die
-  vorgesehenen Folgefeatures bearbeiten.
+- Zweck dieser Datei: Arbeitsauftrag, Quellcode-Inventar und Übergabe für die
+  nächsten Agenten, auch wenn diese nur ein kleines Kontextfenster haben.
+- Der Abschnitt `AKTUELLER IMPLEMENTIERUNGSSTAND` beschreibt den vorhandenen
+  Code. Der Abschnitt `BACKLOG / SUBTASKS` beschreibt ausschließlich noch
+  offene Erweiterungen oder Prüfungen.
 - Platzhalterdaten sollen einfach austauschbar bleiben.
 - Zielbetrieb: Cloudflare Pages für das Frontend und ein separat gehosteter
   Node.js-Server für Multiplayer und WebSockets.
+
+==================================================
+## AKTUELLER IMPLEMENTIERUNGSSTAND
+
+- Grundlage dieser Bestandsaufnahme ist der Quellcode vom 15.09.2026. Bei
+  Widersprüchen zwischen älteren Tickettexten, README und Code ist der Code im
+  jeweils genannten Paket maßgeblich.
+- Neue Agenten sollen vor einem Ticket mindestens den passenden `STATUS-*`-
+  Block und anschließend die dort genannten Dateien lesen.
+- Der vorhandene Funktionsumfang darf bei Erweiterungen nicht stillschweigend
+  entfernt, clientseitig nachgebaut oder durch nicht autoritative Logik ersetzt
+  werden.
+
+[x] STATUS-001 | ARCHITEKTUR | Pakete und Zuständigkeiten
+  - Das Repository ist ein pnpm-Monorepo mit Node.js ab Version 20, TypeScript
+    und den Paketen `shared`, `server` und `client`.
+  - `packages/shared` enthält Domänentypen, Brett- und Kartendaten, den
+    deterministischen Zufallsgenerator, Selektoren und die reine Spielengine.
+  - `packages/server` enthält Express, Socket.IO, Raumverwaltung, Reconnect,
+    Zeitgeber, Bots, Bot-Handel und die dateibasierte Accountverwaltung.
+  - `packages/client` enthält die React-/Vite-Oberfläche, Socket-Store,
+    Browser-Sitzungen, 2D-Karten, WebGL-Welten und alle Bedienkomponenten.
+  - Die Engine folgt `applyAction(state, envelope) -> ApplyResult`, klont den
+    Zustand vor jeder Änderung und verändert bei einer abgelehnten Aktion den
+    ursprünglichen Zustand nicht.
+  - Der Server ist autoritativ. Clients senden Aktionen und stellen den vom
+    Server verteilten Zustand dar; Spielregeln gehören nicht ausschließlich in
+    React-Komponenten oder Socket-Handler.
+  - Gemeinsame Verträge für Spielzustand, Aktionen und Socket-Ereignisse stehen
+    in `packages/shared/src/types.ts`.
+
+[x] STATUS-002 | SPIELBRETT | Felder, Eigentum und Grunddaten
+  - Das Brett in `packages/shared/src/data/board.ts` besitzt genau 40 Felder in
+    fester Reihenfolge von Index 0 bis 39.
+  - Kaufbar sind 22 Straßen in acht Farbgruppen, vier Depots und zwei Werke,
+    also insgesamt 28 Grundstücke.
+  - Hinzu kommen Start, Holding Yard, Plaza, Dispatch, zwei Steuerfelder, drei
+    Fortune-Felder und drei Ledger-Felder.
+  - Straßen besitzen Kaufpreis, sechs Rentenstufen und Baukosten. Vier Häuser
+    entsprechen den Stufen 1 bis 4; Stufe 5 ist ein Hotel.
+  - Depotmiete hängt von der Zahl eigener Depots ab. Werksmiete verwendet den
+    Würfelwert und die Zahl eigener Werke.
+  - Standardnamen, Kurzbezeichnungen, Preise, Mieten, Gruppen und Feldarten
+    kommen immer aus `board.ts`; eigene Namen liegen nur als sparse Overrides
+    in `GameState.tileNames`.
+
+[x] STATUS-003 | SPIELABLAUF | Phasen und zentrale Regeln
+  - Die Phasen sind `lobby`, `pre_roll`, `awaiting_buy`, `auction`, `debt`,
+    `post_roll` und `game_over`.
+  - Nur der Host kann ein Spiel starten; mindestens zwei Spieler sind nötig.
+    Unterstützt werden zwei bis acht Plätze.
+  - Würfeln, Bewegung, Gehalt beim Überqueren von Start, optional doppeltes
+    Gehalt bei exaktem Landen, Pasch-Folgezüge und die Strafe nach drei
+    aufeinanderfolgenden Paschen sind implementiert.
+  - Im Holding Yard kann ein Spieler einen Pasch würfeln, die konfigurierbare
+    Gebühr zahlen oder eine Reprieve-Karte verwenden. Nach drei Fehlversuchen
+    wird die Gebühr fällig und die Figur bewegt sich.
+  - Freie Grundstücke können gekauft oder abgelehnt werden. Bei aktivierten
+    Auktionen startet danach eine offene, reihum laufende Auktion.
+  - Miete berücksichtigt Straßenausbau, vollständige Farbgruppen, Hypotheken,
+    Depotanzahl, Werksmultiplikator und optional mietfreie Eigentümer im
+    Holding Yard.
+  - Bauen und Verkaufen prüfen Eigentum, vollständige Farbgruppe, gleichmäßige
+    Verteilung, Hypotheken, Geld und den globalen Haus-/Hotelvorrat.
+  - Hypotheken zahlen die Hälfte des Kaufpreises aus. Das Aufheben kostet den
+    Hypothekenwert zuzüglich zehn Prozent.
+  - Steuern und Gebühren gehen an die Bank oder bei aktivierter Hausregel in
+    den Plaza-Topf; ein Spieler auf der Plaza erhält den vorhandenen Topf.
+  - Rundenfristen werden serverseitig ausgewertet und lösen sinnvolle
+    Standardaktionen aus. `turnSeconds = 0` deaktiviert den Zeitgeber.
+  - Alle Zufallsentscheidungen verwenden `GameState.rngState`; bei gleichem
+    Seed und gleicher Aktionsfolge ist das Spiel reproduzierbar.
+  - Der Sonderfall Spielername `SonToes` manipuliert während der ersten Runde
+    gezielt zwei Würfe. Dieser Easter Egg ist absichtlich in Engine und Tests
+    vorhanden und darf nicht versehentlich als Fehler entfernt werden.
+
+[x] STATUS-004 | HAUSREGELN | Einstellbarer Spielrahmen
+  - Der Host kann in der Lobby Auktionen, gleichmäßiges Bauen, doppelte Miete
+    für vollständige Gruppen, Plaza-Topf, mietfreies Holding und doppeltes
+    Gehalt bei exaktem Start ein- oder ausschalten.
+  - Einstellbar sind Startgeld, Startgehalt, Holding-Gebühr, Zugzeit und maximale
+    Spielerzahl. Der Server validiert und begrenzt alle Werte erneut.
+  - Die Engine unterstützt außerdem `houseSupply`, `hotelSupply` und einen
+    festen Seed. Diese drei Werte sind aktuell nicht als Lobby-Eingaben
+    sichtbar und verwenden normalerweise die Standardwerte 32, 12 und einen
+    serverseitig erzeugten Seed.
+  - Hausregeln sind nach Spielstart gesperrt.
+
+[x] STATUS-005 | KARTEN | Fortune, Ledger und Karteneditor
+  - Es existieren zwei Decks mit jeweils zwölf Standardkarten. Sie werden mit
+    dem Spiel-Seed gemischt und nach Verbrauch erneut verwendet.
+  - Neun Effekttypen sind implementiert: Geld von oder an die Bank, Geld von
+    oder an alle Mitspieler, Bewegung zu einem Feld, relative Bewegung,
+    nächstes Depot/Werk mit Multiplikator, Holding Yard, Reprieve-Karte und
+    gebäudeabhängige Abgabe.
+  - Eine gezogene Karte wird sofort serverseitig ausgeführt. Die zuletzt
+    gezogene Karte bleibt als `drawnCard` für die Anzeige erhalten; es gibt
+    aktuell keinen separaten Aufdecken- oder Bestätigen-Schritt.
+  - Der Host kann in der Lobby eigene Fortune-/Ledger-Karten anlegen und Karten
+    löschen. Eingaben und Effektparameter werden serverseitig validiert; jedes
+    Deck muss mindestens eine Karte behalten.
+  - Der Host kann die Namen aller 28 kaufbaren Felder ändern. Ein leerer Name
+    stellt den Standardnamen wieder her; Änderungen sind auf 28 Zeichen
+    begrenzt und nach Spielstart gesperrt.
+  - Kartentext und Kartenwirkung werden im Spielprotokoll und in der
+    Brettmitte angezeigt. Das Deck selbst kann während eines Spiels nur
+    angesehen werden.
+
+[x] STATUS-006 | AUKTIONEN | Vorhandene offene Auktionslogik
+  - Die vorhandene Auktion ist offen und rundenbasiert, nicht verdeckt. Alle
+    noch aktiven Bieter sehen Höchstgebot und Höchstbietenden.
+  - Nur der im Auktionszustand angegebene Spieler darf bieten oder passen.
+    Gebote müssen das Höchstgebot übersteigen und dürfen das Bargeld des
+    Bieters nicht überschreiten.
+  - Wer passt, scheidet aus. Der letzte gültige Höchstbietende erhält das
+    Grundstück; ohne Gebot bleibt es bei der Bank.
+  - Auktionen verwenden die Zugfrist, werden im autoritativen Raumzustand
+    übertragen und nach Reconnect korrekt weiter angezeigt.
+  - Bots können mit einem preis-, gruppen- und bargeldabhängigen Limit bieten
+    oder passen.
+
+[x] STATUS-007 | HANDEL UND SCHULDEN | Vermögensbewegungen
+  - Spieler können Angebote aus Bargeld, Grundstücken und Reprieve-Karten
+    zusammenstellen und eine optionale Nachricht mitgeben.
+  - Empfänger können annehmen, ablehnen oder ein Gegenangebot erstellen;
+    Absender können offene Angebote zurückziehen.
+  - Eigentum, Bargeld, Karten, Bebauung und Berechtigung werden beim Annehmen
+    erneut geprüft. Bebaute Grundstücke sind nicht handelbar.
+  - Beim Übertragen eines belasteten Grundstücks zahlt der Empfänger die
+    vorgesehenen zehn Prozent Hypothekenzinsen.
+  - Reicht Bargeld für Miete, Steuer oder Kartenfolge nicht aus, entsteht eine
+    konkrete Schuld an Bank oder Spieler statt sofortiger Insolvenz.
+  - Während einer Schuld kann der Betroffene Gebäude verkaufen, Grundstücke
+    beleihen und handeln. Die Schuld wird automatisch beglichen, sobald genug
+    Bargeld vorhanden ist.
+  - Insolvenz ist nur erlaubt, wenn der Liquidationswert nicht reicht. Ein
+    freiwilliges Ausscheiden ist ebenfalls möglich; Grundstücke fallen dabei
+    unbebaut an die Bank zurück.
+  - Der letzte nicht insolvente Spieler gewinnt. Ausgeschiedene Spieler
+    behalten ihren Platz in der Zustands- und Ergebnisanzeige und schauen zu.
+
+[x] STATUS-008 | MULTIPLAYER | Räume, Rollen, Chat und Reconnect
+  - Spieler können öffentliche oder private Räume erstellen. Raumcodes bestehen
+    aus sechs kryptografisch zufällig gewählten, gut unterscheidbaren Zeichen
+    und werden auf Kollisionen geprüft.
+  - Öffentliche, nicht beendete Räume erscheinen in der Raumliste. Private
+    Räume sind nur über Code oder Einladungslink erreichbar; laufende Spiele
+    sind als zuschaubare Räume gelistet.
+  - Der Host kann vor Spielstart Bots hinzufügen, Spieler entfernen,
+    Hausregeln ändern sowie Karten und Grundstücksnamen anpassen.
+  - Jede Socket-Verbindung kann gleichzeitig nur einem Raum und nur einer Rolle
+    zugeordnet sein.
+  - Wer einem bereits gestarteten Spiel ohne gültigen Sitz-Token beitritt, wird
+    Zuschauer. Zuschauer sehen Zustand, Protokoll und Chat, dürfen aber keine
+    Spielaktion und keine Chatnachricht senden.
+  - Die Zuschauerzahl wird in der Raumliste gezeigt. Es gibt derzeit keine
+    konfigurierbare Höchstzahl und keine Host-Aktion zum Entfernen einzelner
+    Zuschauer.
+  - Chatnachrichten sind auf 300 Zeichen begrenzt; ein Raum hält höchstens 200
+    Nachrichten. Das Spielprotokoll hält höchstens 400 Einträge.
+  - Bei Verbindungsabbruch bleibt ein Sitz standardmäßig zwei Minuten
+    reserviert. Ein gültiger Reconnect-Token stellt Identität, Geld, Besitz und
+    Zugzustand wieder her.
+  - Reconnect-Tokens gelten standardmäßig zwölf Stunden und verlängern sich bei
+    Benutzung. Übernimmt ein neuer Tab denselben Sitz, wird der alte Socket
+    ausdrücklich aus dem Raum entfernt.
+  - Ein explizites Verlassen der Lobby gibt den Sitz sofort frei. Ein explizites
+    Verlassen während des Spiels zählt als Aufgabe; bloßes Aktualisieren oder
+    kurzzeitiges Trennen nicht.
+
+[x] STATUS-009 | BOTS | Automatische Mitspieler und Verhandlungen
+  - Bots können würfeln, Grundstücke kaufen oder ablehnen, Auktionen bedienen,
+    bauen, Schulden durch Verkauf oder Hypothek begleichen und Züge beenden.
+  - Kauf-, Bau- und Auktionsentscheidungen halten Bargeldreserven zurück und
+    berücksichtigen Gruppenvervollständigung und Grundstückswert.
+  - Bots können Geldangebote und Grundstückstausch vorschlagen, Angebote
+    bewerten, annehmen, ablehnen oder einmalig mit angepasstem Bargeld
+    kontern.
+  - Vollständige Gruppen, Hypotheken, Übertragungszinsen, Reprieve-Karten und
+    eigener Liquiditätsbedarf fließen in die Bewertung ein.
+  - Verhandlungs-Memory verhindert wiederholte Angebote in demselben Zug und
+    endlose Gegenangebotsketten. Bot-Entscheidungen erscheinen mit Begründung
+    im Spielprotokoll.
+  - Bots handeln nach `BOT_THINK_MS`, damit menschliche Spieler den Ablauf
+    verfolgen können.
+
+[x] STATUS-010 | ACCOUNTS | Anmeldung und gespeicherte Vorlagen
+  - Spielen als Gast bleibt möglich. Optional können Accounts mit Benutzername
+    und Passwort erstellt und auf mehreren Geräten verwendet werden.
+  - Benutzernamen erlauben 3 bis 24 Buchstaben, Ziffern, Unterstriche oder
+    Bindestriche. Passwörter erlauben 10 bis 128 Zeichen.
+  - Passwörter werden mit zufälligem Salt und scrypt gehasht. Zufällige
+    Sitzungstokens werden nur gehasht gespeichert, gelten 30 Tage und werden
+    beim Abmelden widerrufen. Eine Passwortwiederherstellung existiert nicht.
+  - Ein Account kann bis zu 50 benannte Vorlagen mit jeweils höchstens 200
+    Karten speichern, überschreiben und löschen.
+  - Eine Vorlage enthält ausschließlich eigene Namen der kaufbaren Felder und
+    die beiden Kartendecks. Hausregeln, Karte/Welt und laufende Spielstände
+    gehören nicht zur Vorlage.
+  - Nur der angemeldete Host kann eine Vorlage aus einer Lobby speichern. Beim
+    Erstellen eines neuen Raums kann eine eigene Vorlage serverseitig geladen
+    werden.
+  - Accounts liegen standardmäßig in
+    `packages/server/data/accounts.json`. Schreibvorgänge werden serialisiert
+    und über eine temporäre Datei atomar ersetzt; mehrere Server-Schreiber
+    werden nicht unterstützt.
+
+[x] STATUS-011 | CLIENT | Seiten, Bedienung und Barrierearmut
+  - `App.tsx` schaltet zwischen Startseite, Lobby und Spielraum. Ein globaler
+    Socket-Store in `net.ts` hält Verbindung, Account, Raum, Spielzustand,
+    Chat, Einladungen und Fehlermeldungen.
+  - Die Startseite bietet Accountzugang, Namenswahl, öffentliche Raumliste,
+    Raumcode-Beitritt, private Räume, Vorlagenauswahl, Einladungslinks,
+    gespeicherte Sitze und die Weltgalerie.
+  - Die Lobby zeigt Plätze, Host/Bot/Ich-Rollen, Hausregeln, Karten- und
+    Namenseditor, Vorlagenspeicherung, Kartenauswahl, 2D-/3D-Umschaltung und
+    Einladungslink.
+  - Der Spielraum besitzt Desktop-Seitenleisten und eine mobile Navigation für
+    Brett, alle Grundstücke, Spieler und Tisch/Chat.
+  - Die Aktionsleiste zeigt aktuellen Spieler, Phase, Restzeit und nur die im
+    Zustand sinnvollen Aktionen für Würfeln, Kauf, Zugende, Holding und Schuld.
+  - Grundstücksdetails, Eigentümer, Preis, Miete, Häuser, Hotel und Hypothek
+    sind per Maus und Tastatur erreichbar. Die mobile Übersicht zeigt alle 28
+    kaufbaren Felder ohne vorgeschalteten Filter.
+  - Weitere Oberflächen sind offene Angebote und Gegenangebote,
+    Grundstücksverwaltung, Auktion, Kartenübersicht, Hausregeln,
+    Spielprotokoll, Chat mit Ungelesen-Zähler und Einladungslink.
+  - Die Endansicht zeigt Rangfolge, Gewinner, Spieldauer, Haltebereichbesuche,
+    Plaza-Gewinne und den Verlauf des Nettovermögens.
+  - Hell-/Dunkelthema, gewählte Welt und Brettansicht werden lokal gespeichert.
+    Fehler bei oder blockierter Browser-Speicherung verhindern das Spielen
+    nicht.
+  - Browser-Benachrichtigungen außerhalb der Seite sind aktuell nicht
+    implementiert.
+
+[x] STATUS-012 | WELTEN | 2D-Karten und WebGL-Darstellung
+  - Es sind elf auswählbare Welten registriert: `standard`, `cyber`, `poker`,
+    `pride`, `dummy`, `abyss`, `lunar`, `mycelium`, `oasis`, `confection` und
+    `clockwork`.
+  - Die Weltwahl ist rein lokal. Spieler desselben Raums können unterschiedliche
+    Darstellungen verwenden; Regeln, Feldreihenfolge und Preise bleiben gleich.
+  - Jede Welt besitzt eine 2D-Karte, eine 3D-Szene, Theme-Metadaten und ein
+    statisches Vorschaubild unter `packages/client/public/worlds`.
+  - Die 2D-Ansicht verwendet eine nummerierte Ringroute. Kleine Viewports halten
+    ein 440px großes Brett scrollbar, statt Namen unlesbar zu verkleinern.
+  - Die 3D-Ansicht verwendet eigene WebGL-Geometrie ohne externe Modelle oder
+    Texturen, Tiefenpuffer, Beleuchtung, Picking, Kameradrehung, Zoom,
+    Spielfigurenbewegung und Zustandsmarker für Eigentum, Häuser, Hotels und
+    Hypotheken.
+  - Maus, Touch, Bildschirmsteuerung und Tastatur werden unterstützt. Bei
+    fehlendem WebGL fällt die Spielansicht auf 2D und die Startseite auf ein
+    Vorschaubild zurück.
+  - Labelkollisionen und Bildschirmgrenzen werden berechnet. Ausgewählte oder
+    berührte Felder haben Vorrang; vollständige Namen und Preise bleiben über
+    Inspector, Tooltip und Grundstücksdetails verfügbar.
+  - `prefers-reduced-motion` unterdrückt Figurenbewegungen. Beim Entfernen einer
+    3D-Szene werden GPU-Ressourcen, Observer und Listener freigegeben.
+  - Neue Welten müssen in `maps/index.ts`, `world/themes.ts`, der Szenenlogik
+    und den Vorschauen ergänzt werden. Eine Welt ist aktuell nur eine lokale
+    Darstellung und enthält keine eigenen Regeln oder Brettdaten.
+
+[x] STATUS-013 | SERVER | HTTP, Socket.IO und Schutzgrenzen
+  - Express stellt `GET /health` und die origin-geschützte öffentliche
+    Raumliste `GET /api/rooms` bereit. Optional kann derselbe Prozess das
+    gebaute Standalone-Frontend ausliefern.
+  - Socket.IO verarbeitet Accounts, Raumliste, Erstellen/Beitreten/Verlassen,
+    Spielaktionen, Chat, Hausregeln, Bots, Entfernen von Spielern, Umbenennen
+    und Kartenänderungen.
+  - Server-Broadcasts enthalten Serverinfo, Raumliste, Raumzustand, Chat,
+    Fehler und explizite Verlassen-/Ersetzt-Meldungen.
+  - Vor dem Senden werden RNG-Zustand, Seed und nicht gezogene Deckreihenfolgen
+    entfernt, damit Clients zukünftige Würfe oder Karten nicht vorhersagen.
+  - Produktionszugriffe werden gegen eine exakte `CLIENT_ORIGIN`-Liste geprüft.
+    Die Prüfung gilt für HTTP, Socket.IO-Polling und WebSocket-Upgrades;
+    originlose Produktionsverbindungen werden abgelehnt.
+  - Ein Token-Bucket begrenzt Aktionen pro Socket. Zusätzlich gelten maximal
+    acht Raumerstellungen pro Verbindung, maximal 400 Räume im Speicher, ein
+    64-KiB-JSON-Limit und ein 32-KiB-Socket-Frame-Limit.
+  - Leere Räume werden standardmäßig nach 15 Minuten entfernt. Beendete Spiele
+    verschwinden aus der öffentlichen Raumliste.
+  - Eine Origin-Allowlist schützt vor fremden Browserseiten, ist aber keine
+    Benutzeranmeldung für das Backend. Sitzberechtigungen beruhen separat auf
+    zufälligen Reconnect-Tokens.
+
+[x] STATUS-014 | PERSISTENZ | Browser- und Serverdaten
+  - Laufende Räume, Spielstände, Raumchat, Bot-Memory und Zeitgeber liegen nur
+    im Speicher des einen Node-Prozesses. Neustart oder Deployment beendet alle
+    laufenden Spiele.
+  - Horizontale Skalierung ist nicht unterstützt: Mehrere Instanzen hätten
+    getrennte Raumlisten und getrennte Socket-Zustände.
+  - Der aktuelle Sitz eines Tabs liegt in `sessionStorage`. Wiederbeitretbare
+    Sitze, Spielername, Accounttoken, Theme, Welt und Brettansicht werden je
+    nach Zweck in `localStorage` gehalten.
+  - Nur Accounts und gespeicherte Karten-/Namensvorlagen sind serverseitig in
+    einer JSON-Datei persistent. Im Docker-Compose-Betrieb wird dafür ein
+    benanntes Volume eingebunden.
+  - Die Dateien `rentierupdate.patch` und `richup_ss.png` im Projektstamm sind
+    nicht in den Anwendungscode eingebunden und keine Laufzeitabhängigkeiten.
+
+[x] STATUS-015 | DEPLOYMENT | Lokaler und gehosteter Betrieb
+  - Lokal startet `pnpm dev` Shared, Server auf Port 3001 und Vite-Client auf
+    Port 5173. `pnpm build` erzeugt Server und Standalone-Client; `pnpm start`
+    startet danach den Node-Prozess.
+  - `pnpm share` baut die Anwendung und startet optional einen ngrok-Tunnel.
+    Dieser Weg ist für direkte Tests gedacht, nicht für den Zielbetrieb.
+  - Der Zielbetrieb verwendet Cloudflare Pages für das Frontend und Render für
+    den separaten Node-/Socket.IO-Server.
+  - Bekannte Produktionsziele sind `https://www.marxopoly.me`,
+    `https://marxopoly.pages.dev` und `https://marxopoly.onrender.com`.
+  - `pnpm build:pages` benötigt eine gültige HTTPS-Variable
+    `VITE_SERVER_URL`. Der normale Server-Build erzeugt dagegen einen Client,
+    der sich mit dem Ursprung der ausgelieferten Seite verbindet.
+  - `functions/_middleware.js` schützt auf Pages alle Routen einschließlich
+    Assets per HTTP Basic Auth und setzt No-Cache- sowie Sicherheitsheader.
+    `BASIC_AUTH_USER` und `BASIC_AUTH_PASS` dürfen kein `VITE_`-Präfix haben.
+  - Der separat gehostete Backendprozess muss `SERVE_CLIENT=0`, `SHARE=0`, HTTPS,
+    WebSocket-Upgrades, persistentes Accountvolume und genau eine Instanz
+    verwenden.
+  - Dockerfile und Docker Compose sind vorhanden. Das Image baut mit eingefrorenem
+    Lockfile, sicheren Produktionsdefaults und Healthcheck.
+
+[x] STATUS-016 | PRÜFUNGEN | Automatisierte Absicherung
+  - `pnpm test` baut Shared und führt Engine-, Server- und Clienttests aus.
+  - Am 15.09.2026 waren 44 Engine-Tests, 24 Server-Tests und 26 Client-Tests
+    erfolgreich.
+  - Engine-Tests decken unter anderem Zugfolge, Mieten, Bauen, Hypotheken,
+    Auktionen, Handel, Schuld, Insolvenz, Holding, Karten, Anpassungen,
+    Statistik, Determinismus und den `SonToes`-Sonderfall ab.
+  - Server-Tests decken Accounts, parallele Persistenz, Chatgrenzen, Reconnect,
+    Bot-Handel, Bot-Fortschritt und Hosted-Sicherheit ab.
+  - Clienttests decken Basic Auth, Pages-Konfiguration, Sitzspeicherung,
+    2D-/3D-Auswahl, alle elf Welten, Kamera, Picking, Labelkollisionen,
+    Ressourcenfreigabe, Barrierefreiheit und mobile Grundstücke ab.
+  - `pnpm test:browser` führt Playwright mit 67 Chromium-Fällen aus: je elf
+    Welten fünf 2D-Viewports und einen 3D-Start sowie einen vollständigen
+    Zwei-Profil-Multiplayerfall.
+  - Vor Abschluss eines Codetickets sind mindestens der relevante Test,
+    `pnpm typecheck` und `pnpm build` auszuführen. Bei Änderungen an Welten oder
+    Multiplayer ist zusätzlich `pnpm test:browser` relevant.
+
+[x] STATUS-017 | RECHTLICHES | Arbeitsname und Veröffentlichungsgrenzen
+  - Marxopoly ist ein Arbeitsname für ein unabhängiges Spiel und nicht mit
+    Hasbro verbunden. Der Hinweis ist im Frontend und in der README vorhanden.
+  - Namen, Preise, Kartentexte, Geometrie und Darstellung wurden eigenständig
+    überarbeitet; die Mechanik und Feldstruktur besitzen aber weiterhin
+    erhebliche Ähnlichkeiten zu Monopoly.
+  - Eine Umbenennung, kostenlose Nutzung oder MIT-Lizenz ist keine rechtliche
+    Freigabe. Vor einer öffentlichen Veröffentlichung bleiben Markenrecherche,
+    anwaltliche IP-Prüfung, Asset-/Lizenzprüfung sowie korrekte Anbieter- und
+    Datenschutzhinweise erforderlich.
+  - Die vollständige technische Abgrenzung und die weiterhin offenen Punkte
+    stehen in `docs/IP-REVIEW.md`. Agenten dürfen daraus keine bereits erfolgte
+    rechtliche Freigabe ableiten.
 
 ==================================================
 ## COMPLETED
@@ -132,29 +487,28 @@
 ==================================================
 ## VALIDATION BASELINE
 
-- TypeScript-Prüfung für Shared, Server und Client war erfolgreich.
-- 44 Engine-Tests waren erfolgreich.
-- Client-Tests einschließlich Regressionen für Labelkollisionen,
-  Bildschirmränder, Auswahlpriorität und vollständige Feldnamen waren
-  erfolgreich.
-- Die 3D-Geometrieprüfungen verwenden einen Canvas-Mock.
-- Das Produktions-Bundle wurde erfolgreich nach
-  `/tmp/marxopoly-client-build` gebaut, damit bereits lokal geänderte
-  Client-Builddateien erhalten bleiben.
-- Chromium-Prüfung war erfolgreich: alle 40 Standardnamen auf allen fünf
-  2D-Karten bei 296, 390, 600 und 800px Ansichtsgröße sowie bei 600x300px ohne
-  Textüberlauf; außerdem lange eigene Namen, Scrollen in beide Richtungen und
-  WebGL-Start aller fünf 3D-Welten.
-- Testwerkzeuge und Screenshots liegen temporär unter
-  `/tmp/marxopoly-ui-check`.
+- Stand der lokalen Prüfung: 15.09.2026.
+- `pnpm test` war erfolgreich: 44 Engine-Tests, 24 Server-Tests und 26
+  Client-Tests.
+- `pnpm typecheck` war für Shared, Server und Client erfolgreich.
+- `pnpm build` war erfolgreich und erzeugte Shared, Server sowie den
+  Standalone-Client.
+- Alle 67 Chromium-Fälle meldeten Erfolg: je elf Welten bei 296x700, 390x844,
+  600x800, 800x900 und 600x300 in 2D, alle elf 3D-Starts sowie Raumbeitritt,
+  Spielstart, Chat, Würfeln und Reconnect mit zwei isolierten Profilen.
+- Bekannte Prüfgrenze: Unter Windows beendete sich der Playwright-Aufruf nach
+  dem erfolgreichen 67. Fall nicht selbst und musste nach der Testausgabe
+  abgebrochen werden. Die einzelnen Fälle waren grün, der Gesamtprozess lieferte
+  dadurch in diesem Lauf aber keinen regulären Exitcode 0.
+- Die schnellen 3D-Geometrie- und Renderingtests verwenden Mocks oder einen
+  Softwarepfad; die Playwright-Fälle prüfen zusätzlich den Start in Chromium.
 
 ==================================================
 ## BACKLOG / SUBTASKS
 
-[ ] TASK-006 | DEPLOYMENT | Geschützten Hosted-Betrieb einrichten und prüfen
-  - Status: Repository-seitig vorbereitet und lokal geprüft; externes Deployment
-    ist teilweise geprüft, aber mangels Dashboardzugriff und gültiger Zugangsdaten
-    noch nicht als abgeschlossen markiert.
+[x] TASK-006 | DEPLOYMENT | Geschützten Hosted-Betrieb einrichten und prüfen
+  - Status: Umgesetzt und am 15.09.2026 lokal sowie gegen das geschützte
+    Live-Deployment geprüft.
   - Frontend: Cloudflare Pages mit `functions/_middleware.js` und
     `_routes.json`; alle Frontend-Routen einschließlich Assets müssen Basic Auth
     verlangen.
@@ -199,9 +553,289 @@
     konfiguriert; Produktion verwendet `www`. Zwei Live-Socket-Clients haben
     außerdem privaten Raumbeitritt, Spielstart, Chat, Würfeln und tokenbasierten
     Reconnect erfolgreich durchlaufen.
-  - Zum Abschluss erforderlich: korrekte Basic-Auth-Zugangsdaten und den
-    vollständigen Frontend-Ablauf mit zwei Browserprofilen gegen die echte URL
-    prüfen.
+  - Abschließende Live-Prüfung: Zwei isolierte, mit den echten Basic-Auth-Daten
+    authentifizierte Browserprofile haben über `www.marxopoly.me` Raumbeitritt,
+    Spielstart, Chat, Würfeln und Reconnect erfolgreich durchlaufen. Der
+    wiederverwendbare Lauf `pnpm test:browser:live` prüft außerdem fehlende und
+    falsche Zugangsdaten sowie den direkten Zugriff auf ein gebautes Asset.
+
+[ ] TASK-007 | GAMEPLAY | Kartenablauf um Bestätigung und neue Effekte erweitern
+  - Status: Zwei serverseitig gemischte Decks, 24 Standardkarten, neun
+    Effekttypen, Karteneditor, Protokoll und Anzeige sind bereits vorhanden.
+  - Ergänzung: Eine gezogene Karte wird zunächst als ausstehend angezeigt und
+    erst nach Bestätigung durch den aktiven Spieler ausgeführt.
+  - Timeout und Botlogik müssen eine ausstehende Karte automatisch bestätigen,
+    damit ein getrennter Client das Spiel nicht dauerhaft blockiert.
+  - Als neuer Effekt wird mindestens das Überspringen eines vollständigen Zuges
+    unterstützt und im Karteneditor konfigurierbar gemacht.
+  - Ausstehende und bestätigte Karten werden im autoritativen Zustand so
+    abgebildet, dass Reconnect und Seitenneuladen keine Wirkung doppelt
+    ausführen oder verlieren.
+  - Erfolgreiche Prüfungen: Engine-Tests für Ziehen, Bestätigen, Doppelaktion,
+    Timeout und neuen Effekt, Server-Tests für Autorisierung und Reconnect sowie
+    Client-Tests für die zugängliche Kartendarstellung.
+  - Bekannte Grenze: Weltabhängige Brett- und Kartensätze gehören zu TASK-010.
+
+[ ] TASK-008 | GAMEPLAY | Optionale verdeckte Auktionsvariante ergänzen
+  - Status: Eine offene, reihum laufende Auktion mit sichtbarem Höchstgebot,
+    Zugfrist, Botunterstützung und Reconnect ist bereits implementiert.
+  - Ergänzung: Der Host kann in der Lobby zwischen der bestehenden offenen und
+    einer neuen verdeckten Auktion wählen.
+  - Bei der verdeckten Variante darf jeder berechtigte Spieler genau ein Gebot
+    oder einen Pass abgeben; fremde Beträge bleiben bis zur Auswertung geheim.
+  - Gebote dürfen das aktuelle Bargeld nicht überschreiten. Das höchste Gebot
+    gewinnt; Gleichstände werden deterministisch nach Sitzreihenfolge ab dem
+    auslösenden Spieler entschieden.
+  - Timeout, Reconnect und Bots müssen beide Varianten bedienen. Nicht
+    abgegebene Gebote gelten nach Fristablauf als Pass.
+  - Erfolgreiche Prüfungen: Engine- und Server-Tests für Sichtbarkeit,
+    Gebotsgrenzen, Gleichstand, Auswertung, Timeout und Reconnect sowie ein
+    Browser-Test mit mindestens drei Profilen.
+  - Bekannte Grenze: Die offene Auktion bleibt Standard, damit bestehende
+    Spiele und Vorlieben unverändert funktionieren.
+
+[ ] TASK-009 | MULTIPLAYER | Zuschauermodus administrierbar erweitern
+  - Status: Beitritt zu laufenden Spielen, Nur-Lesen-Rechte, Zuschauerzahl,
+    Reconnect von Spielersitzen und Zuschauen nach Insolvenz sind vorhanden.
+  - Ergänzung: Der Host kann eine maximale Zuschauerzahl festlegen und den
+    weiteren Zuschauerbeitritt für einen Raum schließen oder wieder öffnen.
+  - Zuschauer werden in einer eigenen Rollenliste angezeigt und niemals als
+    freie Spielerplätze oder aktive Mitspieler gezählt.
+  - Der Host kann einzelne reine Zuschauer aus dem Raum entfernen. Sitzende
+    Spieler und ausgeschiedene Teilnehmer behalten ihre bestehenden Regeln.
+  - Alle Rechte werden serverseitig geprüft; Zuschauer dürfen weiterhin nicht
+    würfeln, handeln, chatten oder andere spielverändernde Aktionen senden.
+  - Erfolgreiche Prüfungen: Server-Tests für Rollenrechte, Höchstzahl,
+    Schließen, Entfernen und Reconnect sowie ein Browser-Test mit Spieler-,
+    Zuschauer- und Reconnect-Profil.
+  - Bekannte Grenze: Private Zuschauerkommunikation ist nicht Bestandteil
+    dieses Tickets.
+
+[ ] TASK-010 | WORLDS | Spielwelten als vollständige Regelpakete ergänzen
+  - Status: Elf Welten mit eigener 2D-/3D-Darstellung sind vorhanden, verwenden
+    aber alle dasselbe serverseitige Brett, dieselben Karten und Regeln.
+  - Ergänzung: Eine Weltkonfiguration kann neben Farben und Geometrie auch
+    eigene Felder, Preise, Karten, Figuren und Startregeln enthalten.
+  - Fehlende optionale Angaben verwenden stabile Standardwerte; ungültige
+    Konfigurationen werden vor dem Spielstart mit verständlicher Fehlermeldung
+    abgewiesen.
+  - Die gewählte Regelwelt wird Teil des autoritativen Raumzustands und bleibt
+    zwischen Lobby, Spielbrett, Details, Reconnect und allen Clients konsistent.
+    Eine rein lokale Darstellungsauswahl kann zusätzlich erhalten bleiben.
+  - Eine neue Beispielwelt mit mindestens 40 Feldern dokumentiert alle
+    unterstützten Konfigurationsmöglichkeiten.
+  - Erfolgreiche Prüfungen: Schema- und Engine-Tests für gültige, unvollständige
+    und ungültige Welten, Server-Tests für Raum- und Reconnect-Konsistenz sowie
+    Chromium-Regressionen für 2D, 3D und Mobile.
+  - Bekannte Grenze: Ein grafischer Welt-Editor ist nicht Bestandteil dieses
+    Tickets.
+
+[ ] TASK-011 | UX | Zugerinnerungen außerhalb der Brettansicht ergänzen
+  - Status: Aktiver Spieler, Phase, zulässige Aktionen, Restzeit und ein mobiler
+    Rücksprung zum Brett sind bereits sichtbar.
+  - Ergänzung: Wenn der eigene Zug oder eine eigene Schuldaktion beginnt, wird
+    der Seitentitel eindeutig markiert und bei inaktivem Tab optional eine
+    Browser-Benachrichtigung ausgelöst.
+  - Die Berechtigung wird erst nach einer ausdrücklichen Benutzeraktion
+    angefragt. Ablehnung oder fehlende Browserunterstützung beeinträchtigen das
+    Spiel nicht.
+  - Mehrere Zustandsupdates desselben Zuges dürfen nicht mehrfach
+    benachrichtigen. Zuschauer, Bots, insolvente Spieler und fremde Züge lösen
+    keine Erinnerung aus.
+  - Alle Einstellungen und Hinweise sind per Tastatur erreichbar,
+    screenreaderfreundlich und auf kleinen Ansichten ohne abgeschnittenen Text
+    lesbar.
+  - Erfolgreiche Prüfungen: Client-Tests für Zustandswechsel, Sichtbarkeit,
+    Berechtigungen und Duplikatunterdrückung sowie Chromium-Regressionen für
+    Mobile und Desktop.
+  - Bekannte Grenze: Browser-Benachrichtigungen funktionieren nur nach
+    ausdrücklicher Freigabe durch den Benutzer.
+
+[ ] TASK-012 | UX | Interaktives Onboarding und verständliche Spielhilfe ergänzen
+  - Status: Die Startseite, Lobby, Aktionsleiste, Grundstücksdetails und das
+    Spielprotokoll sind vorhanden; neue Spieler erhalten aber noch keine
+    geführte Einführung in Zugablauf, Kauf, Auktion, Bauen, Handel und Schulden.
+  - Ergänzung: Ein überspringbares, lokal merkbares Tutorial erklärt in kurzen
+    Schritten die wichtigsten Aktionen. Es darf wahlweise als geführte Demo mit
+    zwei Bots oder als kontextabhängige Hilfe im ersten echten Spiel starten.
+  - Die Hilfe verwendet ausschließlich die autoritativen Regeln und echte
+    Bedienelemente; sie darf keine abweichenden Beispielwerte oder simulierten
+    Spielzustände einführen.
+  - Jede Phase erhält eine kurze Erklärung, eine klare nächste Handlung und
+    einen zugänglichen Hilfetext. Begriffe wie Hypothek, Liquidationswert,
+    Paschstrafe und Reprieve werden verständlich erklärt.
+  - Tutorialfortschritt, Überspringen und erneutes Öffnen funktionieren ohne
+    Login und blockieren weder Reconnect noch Zuschauer. Der Host kann das
+    Tutorial nicht für andere Spieler erzwingen.
+  - Erfolgreiche Prüfungen: Client-Tests für Fortschritt, Überspringen,
+    Reconnect und Tastaturbedienung; Engine-/Selector-Tests für alle im
+    Tutorial angezeigten Regeln; Chromium-Test für einen vollständigen
+    Demoablauf auf Desktop und Mobile.
+  - Bekannte Grenze: Eine vollständige Kampagne oder ein dauerhaftes
+    Spielerprofil ist nicht Bestandteil dieses Tickets.
+
+[ ] TASK-013 | UX | Spielgefühl durch Feedback, Animationen und Sound aufwerten
+  - Status: Figurenbewegung, Kartenanzeige, Spielprotokoll und 2D-/3D-Wechsel
+    sind vorhanden; wichtige Ereignisse fühlen sich noch nicht ausreichend
+    unmittelbar und belohnend an.
+  - Ergänzung: Wichtige Ereignisse erhalten kurze, überspringbare Feedback-
+    Sequenzen für Würfeln, Landen, Kauf, Miete, Pasch, Karte, Bau, Auktion,
+    Handel, Insolvenz und Sieg. Das Feedback muss den autoritativen Zustand
+    sichtbar machen und darf keine Spielaktion verzögern.
+  - Ergänzung: Optionale, lokal steuerbare UI-Sounds für Würfel, Erfolg,
+    Warnung und Ereignisse sowie eine verständliche Lautstärkeregelung. Keine
+    externen Tracking-, Werbe- oder unklar lizenzierten Audio-Assets.
+  - `prefers-reduced-motion`, stummgeschaltete Medien, fehlende Autoplay-
+    Erlaubnis und langsame Geräte führen zu einem vollständigen, gut lesbaren
+    Sofortmodus. Animationen werden nach Reconnect nicht doppelt abgespielt.
+  - Erfolgreiche Prüfungen: Client-Tests für Ereignisdeduplizierung,
+    Reduced-Motion, Stummschaltung und Zustandswechsel; Browser-Tests für 2D,
+    3D, Mobile und einen Reconnect während eines Feedbacks; Produktions-Build.
+  - Bekannte Grenze: Keine Musikbibliothek und keine weltabhängigen Regeln;
+    weltabhängige Klangvarianten können später ergänzt werden.
+
+[ ] TASK-014 | GAMEPLAY | Strategische Übersicht und Zugplanung verbessern
+  - Status: Grundstücke, Spieler, Vermögen, Protokoll, Karten und Verwaltung
+    sind einzeln erreichbar; wichtige Entscheidungen wie Gruppenfortschritt,
+    Mietrisiko, Baukosten und Liquidität müssen noch mühsam zusammengesucht
+    werden.
+  - Ergänzung: Eine optionale Übersicht zeigt pro Spieler Bargeld,
+    Grundstückswert, Hypotheken, Gebäude, vollständige Farbgruppen und eine
+    nachvollziehbare Nettovermögensschätzung. Verdeckte Informationen bleiben
+    verborgen; Zuschauer sehen nur die bereits erlaubten Daten.
+  - Ergänzung: Grundstücksdetails zeigen die nächste Mietstufe, fehlende
+    Gruppenmitglieder, Bauvoraussetzungen, mögliche Hypothekensumme und die
+    Auswirkungen einer Aktion als Vorschau, ohne den Zustand zu verändern.
+  - Ergänzung: Vor dem Würfeln beziehungsweise vor Kauf, Bau, Hypothek und
+    Handel kann der Spieler eine lokale, jederzeit verwerfbare Zugnotiz oder
+    Checkliste führen. Sie wird nicht an andere Spieler übertragen.
+  - Alle Berechnungen nutzen Shared-Selektoren oder werden serverseitig
+    bestätigt; keine UI-Vorschau darf als Zusage oder Spielaktion gelten.
+  - Erfolgreiche Prüfungen: Selector-Tests für identische Nettovermögenswerte
+    und Grenzfälle, Client-Tests für Vorschau ohne Mutation und Rechte von
+    Spielern/Zuschauern sowie Chromium-Tests mit langen Namen und Mobile-
+    Navigation.
+  - Bekannte Grenze: Keine Wahrscheinlichkeitsvorhersage kommender Würfe oder
+    Karten; verborgener RNG-Zustand bleibt geschützt.
+
+[ ] TASK-015 | GAMEPLAY | Faire Comeback- und Tischdynamik fördern
+  - Status: Schulden, Handel, Plaza-Topf, Karten und Hausregeln erzeugen bereits
+    Wendungen; ein früher Rückstand kann sich dennoch frustrierend endgültig
+    anfühlen.
+  - Ergänzung: Mindestens zwei klar begrenzte, einzeln aktivierbare Hausregeln
+    für Comebacks werden entworfen, implementiert und in der Lobby erklärt,
+    zum Beispiel ein einmaliger Rettungsfonds für den ersten Schuldengang oder
+    ein begrenzter Rückstandsbonus nach einer vollständigen Runde ohne Besitz.
+  - Regeln müssen deterministisch, serverautoritativ, transparent protokolliert
+    und vor Spielstart abschaltbar sein. Sie dürfen keine Gewinne nachträglich
+    umverteilen und keinen Spieler absichtlich bevorzugen.
+  - Ergänzung: Die Endansicht und Lobby zeigen deutlich, welche Comeback-Regeln
+    aktiv waren; bestehende Standardspiele bleiben regelidentisch.
+  - Erfolgreiche Prüfungen: Engine-Tests für Aktivierung, einmalige Auslösung,
+    Mehrspieler-Gleichheit, Insolvenz und Reconnect; Server-Tests für
+    Einstellungen; Browser-Test mit aktivierten und deaktivierten Regeln.
+  - Bekannte Grenze: Kein Matchmaking und keine automatische Anpassung des
+    Schwierigkeitsgrads.
+
+[ ] TASK-016 | MULTIPLAYER | Rematch, Einladungen und Tischbindung verbessern
+  - Status: Private Räume, Einladungslinks, gespeicherte Sitze und eine
+    Ergebnisansicht sind vorhanden; nach einem beendeten Spiel fehlt ein
+    reibungsloser gemeinsamer Neustart.
+  - Ergänzung: Der Host kann aus der Endansicht ein Rematch mit denselben
+    Sitzen, Bots, Namen, Welt-, Karten- und Lobbyeinstellungen vorbereiten.
+    Spieler bestätigen einzeln; nicht bestätigte oder fehlende Spieler werden
+    nicht stillschweigend ersetzt.
+  - Der Host darf vor dem Start Regeln, Seed und Besetzung ändern. Der neue
+    Raumzustand erhält einen neuen Seed und neue Sitz-/Reconnect-Tokens; alte
+    Spielaktionen dürfen nicht erneut ausführbar sein.
+  - Spieler können dem Rematch zustimmen, ablehnen oder den Tisch verlassen.
+    Die UI zeigt eindeutig, wer wartet; der Host kann den Vorgang abbrechen.
+  - Erfolgreiche Prüfungen: Server-/Engine-Tests für neue Raumidentität,
+    Berechtigungen, Reconnect, Abbruch und Bots; Chromium-Test mit zwei
+    Profilen vom Spielende bis zum erneuten Würfeln.
+  - Bekannte Grenze: Kein globales Ranking und keine serverübergreifende
+    Spielhistorie.
+
+[ ] TASK-017 | UX | Persönliche Statistiken und lokale Meilensteine einführen
+  - Status: Die Endansicht zeigt bereits Rangfolge, Dauer, Besuche, Plaza-
+    Gewinne und Nettovermögensverlauf; diese Erkenntnisse werden nicht über
+    Spiele hinweg nutzbar gemacht.
+  - Ergänzung: Eine lokale Statistikseite erfasst opt-in und ohne Login unter
+    anderem Spiele, Siege, durchschnittliche Dauer, häufige Welten, Käufe,
+    Auktionen, Handel und besondere Ereignisse. Es werden keine Chatinhalte,
+    Passwörter oder Reconnect-Tokens gespeichert.
+  - Ergänzung: Kleine, faire Meilensteine würdigen unterschiedliche Spielstile
+    (z. B. Handel, Aufbau, Comeback, Auktion) und zeigen Fortschritt ohne
+    spielmechanische Vorteile oder Kaufdruck.
+  - Datenformat, Löschfunktion, Export als JSON und Verhalten bei blockiertem
+    Browser-Speicher werden dokumentiert. Gastdaten bleiben lokal und werden
+    nicht automatisch mit Accounts vermischt.
+  - Erfolgreiche Prüfungen: Client-Tests für Aggregation, Versionsmigration,
+    Löschung, Export, deaktivierten Speicher und Datenschutz; Browser-Test für
+    ein Spielende und die anschließende Statistikansicht.
+  - Bekannte Grenze: Keine globale Rangliste, keine serverseitige Profilanalyse
+    und keine Veröffentlichung personenbezogener Daten.
+
+[ ] TASK-018 | GAMEPLAY | Schnelle Tischmodi und kooperative Varianten anbieten
+  - Status: Zwei bis acht Spieler, Bots, Zugzeit und mehrere Hausregeln sind
+    vorhanden; unterschiedliche Gruppengrößen erhalten noch keine speziell
+    abgestimmten Spielziele.
+  - Ergänzung: Mindestens ein klar beschriebener Schnellmodus verkürzt eine
+    Partie über eine faire, serverseitig autoritative Siegbedingung, ohne die
+    Standardpartie zu verändern. Die Lobby zeigt erwartete Dauer und Regeln.
+  - Optional als zweiter Modus: ein kooperatives Szenario gegen ein
+    deterministisches Bank-/Ereignisziel mit gemeinsamem, klar sichtbarem
+    Fortschritt. Es darf keine geheimen Cliententscheidungen voraussetzen.
+  - Modus, Siegbedingung und Ergebnis werden in Raumliste, Lobby, Protokoll,
+    Reconnect und Endansicht konsistent dargestellt. Bots müssen teilnehmen
+    können; Zuschauer bleiben lesend.
+  - Erfolgreiche Prüfungen: Engine-Tests für Sieg/Niederlage und Randfälle,
+    Server-Tests für Autorisierung und Reconnect sowie Chromium-Tests für
+    Lobby, Spielstart, Timeout und Endansicht in beiden Modi.
+  - Bekannte Grenze: Keine Ranglisten- oder Echtgeldmechanik; Standard bleibt
+    der unveränderte klassische Modus.
+
+[ ] TASK-019 | UX | Spielprotokoll und Chat für gemeinsame Momente erweitern
+  - Status: Chat und bis zu 400 Protokolleinträge sind vorhanden; wichtige
+    Wendepunkte gehen in der Menge unter und der Chat bietet keine Reaktionen.
+  - Ergänzung: Das Protokoll erhält filterbare Kategorien, eine Markierung für
+    wichtige Wendepunkte und einen Sprung zum zugehörigen Feld, Spieler,
+    Handel oder Kartenereignis. Filter sind lokal und verändern die Historie
+    nicht.
+  - Ergänzung: Spieler können mit einer kleinen festen Auswahl an lokalisierten
+    Reaktionen auf sichtbare Ereignisse reagieren. Reaktionen sind rate-limited,
+    nicht spielentscheidend und für Zuschauer lesbar; freie Chatnachrichten
+    bleiben unverändert moderierbar.
+  - Neue Daten bleiben größenbegrenzt, werden bei Reconnect korrekt geladen und
+    lösen keine wiederholten Benachrichtigungen aus. Keine externen Links,
+    automatische Werbung oder personenbezogene Auswertung.
+  - Erfolgreiche Prüfungen: Server-Tests für Rechte, Rate-Limits, Größenlimits
+    und Reconnect; Client-Tests für Filter, Tastatur, Screenreader und leere
+    Zustände; Chromium-Test für Ereignis-Sprung und Reaktion.
+  - Bekannte Grenze: Keine private Direktnachrichtenfunktion und keine
+    automatische Inhaltsmoderation.
+
+[ ] TASK-020 | QUALITY | Spielbalance messbar machen und sichere Defaults prüfen
+  - Status: Die Engine ist deterministisch und breit getestet; es gibt noch
+    keine wiederholbaren Balance-Szenarien, die lange Partien oder extreme
+    Glücks-/Pechserien sichtbar machen.
+  - Ergänzung: Ein reproduzierbarer Simulations-/Benchmark-Teststand erzeugt
+    viele Partien mit dokumentierten Seeds und Bots und misst Dauer,
+    Vermögensverteilung, Besitzkonzentration, Kartenwirkung, Insolvenzrate und
+    Comeback-Chancen.
+  - Ergänzung: Kritische Kennzahlen erhalten begründete Warnschwellen, die in
+    Tests nur auf Regressionen hinweisen und keine zufälligen Testfehler durch
+    starre Einzelergebnisse erzeugen. RNG, Seed- und Client-Schutz bleiben
+    unverändert.
+  - Auf Basis der Messungen werden nur nachvollziehbare, als Hausregel oder
+    Standardänderung dokumentierte Anpassungen vorgeschlagen; jede Änderung
+    benötigt Engine- und Regressions-Tests sowie aktualisierte Balance-Hinweise
+    in der Lobby.
+  - Erfolgreiche Prüfungen: deterministische Wiederholung desselben Seeds,
+    reproduzierbare Aggregation, Performancegrenze für den Testlauf sowie
+    `pnpm typecheck`, `pnpm test` und `pnpm build`.
+  - Bekannte Grenze: Simulationen ersetzen keine echten Spieltests mit Menschen;
+    externe Telemetrie wird nicht vorausgesetzt.
 
 ==================================================
 ## BEKANNTE GRENZEN
@@ -213,9 +847,15 @@
   Client-Authentifizierung. Für eine strengere Abschottung muss das Hosting-Edge
   des Backends zusätzlich authentifizieren oder den Zugriff anderweitig
   einschränken.
-- Ein Live-Deployment wurde ohne konkrete Hostingkonten und Zugangsdaten nicht
-  vorgenommen. Die lokale Test-Origin `https://backend.example.invalid` dient
-  ausschließlich der Build-Validierung und ist kein erreichbarer Server.
+- Laufende Räume sind nicht persistent und unterstützen keine mehreren
+  Backendinstanzen. Neustarts oder Deployments beenden aktive Spiele.
+- Die Accountdatei besitzt keine Passwortwiederherstellung und darf nur von
+  einem Serverprozess beschrieben werden. Für Hosting ist ein persistentes
+  Volume erforderlich.
+- Der optionale Apex-Hostname `marxopoly.me` ist nicht eingerichtet; verwendet
+  wird `www.marxopoly.me`.
+- Marxopoly ist rechtlich nicht für eine freie öffentliche Veröffentlichung
+  freigegeben; maßgeblich sind die offenen Prüfungen in `docs/IP-REVIEW.md`.
 
 ==================================================
 ## DAUERHAFT AUSGESCHLOSSEN

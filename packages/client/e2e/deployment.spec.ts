@@ -2,11 +2,51 @@ import { expect, test } from '@playwright/test';
 
 test.setTimeout(60_000);
 
-test('two isolated browser profiles can join, start, chat, roll and reconnect', async ({ browser }) => {
-  const hostContext = await browser.newContext();
-  const guestContext = await browser.newContext();
+test('external frontend rejects missing and wrong credentials, including for assets', async ({ baseURL }) => {
+  test.skip(!process.env.E2E_BASE_URL, 'Only applies to an external Basic-Auth deployment.');
+  expect(baseURL).toBeTruthy();
+
+  const basic = (username: string, password: string) =>
+    `Basic ${Buffer.from(`${username}:${password}`, 'utf8').toString('base64')}`;
+  const request = (path: string, authorization?: string) => fetch(new URL(path, baseURL), {
+    headers: authorization ? { Authorization: authorization } : undefined,
+    redirect: 'manual',
+  });
+  const validAuthorization = basic(
+    process.env.E2E_BASIC_AUTH_USER!,
+    process.env.E2E_BASIC_AUTH_PASS!,
+  );
+  const invalidAuthorization = basic(
+    `${process.env.E2E_BASIC_AUTH_USER!}-invalid`,
+    process.env.E2E_BASIC_AUTH_PASS!,
+  );
+
+  for (const response of [await request('/'), await request('/', invalidAuthorization)]) {
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toMatch(/^Basic /);
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+  }
+
+  const indexResponse = await request('/', validAuthorization);
+  expect(indexResponse.ok).toBeTruthy();
+  const index = await indexResponse.text();
+  const assetPath = index.match(/(?:src|href)="([^"]*\/assets\/[^"]+)"/)?.[1];
+  expect(assetPath).toBeTruthy();
+
+  const assetResponse = await request(assetPath!);
+  expect(assetResponse.status).toBe(401);
+  expect(assetResponse.headers.get('cache-control')).toBe('private, no-store');
+});
+
+test('two isolated browser profiles can join, start, chat, roll and reconnect', async ({ browser }, testInfo) => {
+  const contextOptions = testInfo.project.use.httpCredentials
+    ? { httpCredentials: testInfo.project.use.httpCredentials }
+    : {};
+  const hostContext = await browser.newContext(contextOptions);
+  const guestContext = await browser.newContext(contextOptions);
   const host = await hostContext.newPage();
   const guest = await guestContext.newPage();
+  try {
     await host.goto('/');
     await expect(host.getByText('Ready to play')).toBeVisible();
     await host.locator('#player-name').fill('Hosted Alice');
@@ -43,4 +83,7 @@ test('two isolated browser profiles can join, start, chat, roll and reconnect', 
     await expect(guest.locator('.game')).toBeVisible();
     await guest.getByRole('button', { name: /^Chat/ }).click();
     await expect(guest.getByRole('region', { name: 'Table chat' })).toContainText('Hello from the protected deployment');
+  } finally {
+    await Promise.all([hostContext.close(), guestContext.close()]);
+  }
 });

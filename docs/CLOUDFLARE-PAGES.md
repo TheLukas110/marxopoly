@@ -26,13 +26,11 @@ two-client backend smoke test also completed room creation, joining, game start,
 chat, a roll, and token-based reconnect. The optional apex hostname
 `marxopoly.me` is not configured; production uses `www`.
 
-## Review the deployment branch first
+## Review deployment changes first
 
-The deployment work currently lives on `agent/TASK-006-hosted-betrieb` and includes
-the latest `origin/main`. Build the frontend and backend from the **same commit**:
-their board data and rules must match. For review, use a separate staging backend
-running the deployment branch; do not point the new frontend at an older production
-backend.
+Build the frontend and backend from the **same commit** so their board data and
+rules match. For review, use a separate staging backend running the change branch;
+do not point a changed frontend at an older production backend.
 
 For an existing Pages project, leave its production branch as `main`, and enable
 preview builds for the deployment branch. Set the backend URL in the **Preview**
@@ -155,6 +153,28 @@ second browser/profile. Join, start a game, roll, chat, and refresh the guest ta
 to verify reconnect. In a fresh browser profile, verify the login prompt and that
 incorrect credentials also block direct `/assets/` requests. Check desktop and mobile,
 and switch between 2D and 3D. Changing the backend URL requires rebuilding Pages.
+
+The deployment browser test can perform the protected two-profile flow directly
+against an HTTPS deployment. Keep the credentials in the current shell environment;
+do not add them to `.env` or commit them:
+
+```powershell
+$env:E2E_BASE_URL = 'https://www.marxopoly.me'
+$env:E2E_BASIC_AUTH_USER = '<configured Pages user>'
+$env:E2E_BASIC_AUTH_PASS = '<configured Pages password>'
+pnpm test:browser:live
+```
+
+Alternatively, put the same three assignments without the PowerShell `$env:`
+prefix in the gitignored `.env.e2e.local` file. The separate live Playwright
+configuration loads that file when present; ordinary `pnpm test:browser` runs
+remain local. Real values must never be committed.
+
+External mode does not start local web servers. It first verifies `401` responses
+without and with incorrect credentials, including a direct built asset, and then
+uses the configured credentials for the room, game, chat, roll and reconnect flow.
+Unset all three variables after the test so a later browser run cannot target the
+live service accidentally.
 
 Local checks:
 

@@ -18,6 +18,7 @@
     "typecheck": "pnpm --filter @marxopoly/shared build && pnpm -r typecheck",
     "test": "pnpm --filter @marxopoly/shared build && pnpm --filter @marxopoly/shared test && pnpm --filter @marxopoly/server test && pnpm --filter @marxopoly/client test",
     "test:browser": "playwright test",
+    "test:browser:live": "playwright test --config playwright.live.config.ts packages/client/e2e/deployment.spec.ts",
     "clean": "rm -rf packages/*/dist packages/*/tsconfig.tsbuildinfo node_modules packages/*/node_modules"
   },
   "devDependencies": {
