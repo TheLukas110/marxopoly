@@ -17,6 +17,7 @@ import { config } from './config.js';
 import { RoomManager, type Room } from './rooms.js';
 import { AccountStore } from './accounts.js';
 import { applyTemplate } from '@marxopoly/shared';
+import { publicState } from './public-state.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -114,18 +115,8 @@ const seats = new Map<string, { roomId: string; playerId: string; spectator?: bo
  * The client never needs the RNG or the undrawn deck order — sending them lets
  * anyone predict every future roll and card. Strip them from every broadcast.
  */
-function publicState(state: GameState): GameState {
-  return {
-    ...state,
-    rngState: 0,
-    settings: { ...state.settings, seed: 0 },
-    fortuneDeck: [],
-    ledgerDeck: [],
-  };
-}
-
-function roomStatePayload(room: Room): { state: GameState; hostId: string; roomName: string } {
-  return { state: publicState(room.state), hostId: room.hostId, roomName: room.name };
+function roomStatePayload(room: Room, viewerPlayerId?: string): { state: GameState; hostId: string; roomName: string } {
+  return { state: publicState(room.state, viewerPlayerId), hostId: room.hostId, roomName: room.name };
 }
 
 // Coalesce lobby-list broadcasts: a burst of room changes produces one emit.
@@ -141,7 +132,12 @@ function broadcastRoomList(): void {
 
 manager.bind(
   (room) => {
-    io.to(room.id).emit('room:state', roomStatePayload(room));
+    for (const [playerId, socketId] of room.sockets) {
+      io.to(socketId).emit('room:state', roomStatePayload(room, playerId));
+    }
+    for (const socketId of room.spectatorSockets) {
+      io.to(socketId).emit('room:state', roomStatePayload(room));
+    }
     broadcastRoomList();
   },
   (room, message) => {
@@ -431,9 +427,10 @@ io.on('connection', (socket) => {
 
 function seatSocket(socket: GameSocket, room: Room, playerId: string, token: string): void {
   seats.set(socket.id, { roomId: room.id, playerId });
+  room.sockets.set(playerId, socket.id);
   socket.join(room.id);
   socket.emit('room:joined', { roomId: room.id, playerId, token });
-  socket.emit('room:state', roomStatePayload(room));
+  socket.emit('room:state', roomStatePayload(room, playerId));
   for (const message of room.chat.slice(-30)) socket.emit('room:chat', message);
 }
 
@@ -466,6 +463,8 @@ const BOOLEAN_SETTINGS: (keyof GameSettings)[] = [
   'doubleRentOnFullGroup',
 ];
 
+const AUCTION_MODES: GameSettings['auctionMode'][] = ['open', 'sealed'];
+
 /** Only known keys of the right type ever reach the engine. */
 function sanitizeSettings(input: Partial<GameSettings> | undefined): Partial<GameSettings> | undefined {
   if (!input || typeof input !== 'object') return undefined;
@@ -479,6 +478,10 @@ function sanitizeSettings(input: Partial<GameSettings> | undefined): Partial<Gam
   for (const key of BOOLEAN_SETTINGS) {
     const value = (input as Record<string, unknown>)[key];
     if (typeof value === 'boolean') (out as Record<string, unknown>)[key] = value;
+  }
+  const auctionMode = (input as Record<string, unknown>).auctionMode;
+  if (typeof auctionMode === 'string' && AUCTION_MODES.includes(auctionMode as GameSettings['auctionMode'])) {
+    out.auctionMode = auctionMode as GameSettings['auctionMode'];
   }
   return out;
 }

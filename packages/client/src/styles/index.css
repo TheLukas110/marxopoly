@@ -276,6 +276,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focu
 }
 .seat-name { flex: 1; font-weight: 700; }
 .settings.numbers { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; margin-top: 16px; }
+.auction-mode em { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.5; }
 
 /* ================================================================== game */
 .game { height: 100vh; height: 100dvh; min-height: 660px; display: flex; flex-direction: column; }

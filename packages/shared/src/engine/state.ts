@@ -30,6 +30,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   startSalary: 200,
   doubleOnExactStart: false,
   auctionsEnabled: true,
+  auctionMode: 'open',
   plazaPot: false,
   noRentInHolding: false,
   evenBuild: true,
@@ -44,6 +45,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
 
 export function makeSettings(overrides: Partial<GameSettings> = {}): GameSettings {
   const merged: GameSettings = { ...DEFAULT_SETTINGS, ...overrides };
+  if (merged.auctionMode !== 'sealed') merged.auctionMode = 'open';
   merged.startingCash = clamp(merged.startingCash, 200, 100000);
   merged.startSalary = clamp(merged.startSalary, 0, 10000);
   merged.holdingFine = clamp(merged.holdingFine, 0, 5000);

@@ -48,10 +48,15 @@ export function decideBotAction(state: GameState, playerId: string, tradeMemory:
 
   if (state.phase === 'auction' && state.auction) {
     const auction = state.auction;
-    if (auction.activeIds[auction.turnIndex] !== playerId) return null;
+    if (auction.mode === 'sealed') {
+      if (!auction.activeIds.includes(playerId) || auction.submittedIds.includes(playerId)) return null;
+    } else if (auction.activeIds[auction.turnIndex] !== playerId) return null;
     const tile = ownableTile(auction.tileId);
     if (!tile) return { type: 'pass_bid' };
     const ceiling = Math.min(Math.floor(tile.price * (completesGroup(state, playerId, auction.tileId) ? 1.4 : 0.75)), Math.floor(me.cash * 0.6));
+    if (auction.mode === 'sealed') {
+      return ceiling > 0 ? { type: 'bid', amount: ceiling } : { type: 'pass_bid' };
+    }
     const next = auction.highBid + Math.max(10, Math.round(tile.price * 0.05));
     if (next <= ceiling) return { type: 'bid', amount: next };
     return { type: 'pass_bid' };

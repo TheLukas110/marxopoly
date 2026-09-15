@@ -127,6 +127,19 @@ export default function Lobby() {
                 </span>
               </label>
             ))}
+            <label className="field auction-mode">
+              <span>Auction style</span>
+              <select
+                className="input"
+                disabled={!isHost || !game.settings.auctionsEnabled}
+                value={game.settings.auctionMode}
+                onChange={(e) => updateSettings({ auctionMode: e.target.value as GameSettings['auctionMode'] })}
+              >
+                <option value="open">Open, turn by turn</option>
+                <option value="sealed">Sealed, one private bid each</option>
+              </select>
+              <em>Sealed bids stay hidden until every player decides or time runs out.</em>
+            </label>
           </div>
           <div className="settings numbers">
             {NUMBERS.map((n) => (

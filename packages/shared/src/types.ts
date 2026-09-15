@@ -185,8 +185,11 @@ export interface TradeOffer {
   counterOf?: string;
 }
 
+export type AuctionMode = 'open' | 'sealed';
+
 export interface AuctionState {
   tileId: number;
+  mode: AuctionMode;
   /** Highest bid so far; 0 with no bidder means nobody has bid yet. */
   highBid: number;
   highBidderId: string | null;
@@ -194,6 +197,10 @@ export interface AuctionState {
   activeIds: string[];
   /** Index into `activeIds` whose turn it is to bid or pass. */
   turnIndex: number;
+  /** Players who have made their one decision in a sealed auction. */
+  submittedIds: string[];
+  /** Server-authoritative sealed amounts. Public payloads contain at most the viewer's own entry. */
+  sealedBids: Record<string, number>;
   /** Wall-clock deadline for the current bidder, or null when untimed. */
   deadline: number | null;
 }
@@ -232,6 +239,8 @@ export interface GameSettings {
   doubleOnExactStart: boolean;
   /** Unbought properties go to auction instead of staying with the bank. */
   auctionsEnabled: boolean;
+  /** Open auctions run in turns; sealed auctions collect one private decision per player. */
+  auctionMode: AuctionMode;
   /** Taxes and fees accumulate on the Plaza and are paid out to whoever lands there. */
   plazaPot: boolean;
   /** Rent is not collected while the owner sits in the holding yard. */
