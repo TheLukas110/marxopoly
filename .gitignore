@@ -10,3 +10,5 @@ packages/*/*.tsbuildinfo
 .dev.vars.*
 richup_ss.png
 packages/server/data/
+playwright-report/
+test-results/
