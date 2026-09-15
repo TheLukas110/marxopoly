@@ -1,4 +1,4 @@
-# Deploy Common Ground
+# Deploy Marxopoly
 
 The frontend runs on Cloudflare Pages. Multiplayer runs on a **separate, always-on
 Node.js server** with HTTPS and WebSocket support. Pages cannot run this repository's

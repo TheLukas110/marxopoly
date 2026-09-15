@@ -58,7 +58,7 @@ export default function Board({ state, selected, onSelect, controls }: Props) {
           style={{ gridColumn: layout.centre.column, gridRow: layout.centre.row }}
         >
           {!card && !controls && <div className="brand">
-            Common Ground<span className="dot" />
+            Marxopoly<span className="dot" />
           </div>}
           <Dice dice={state.dice} />
           {controls && <div className="board-turn-controls">{controls}</div>}

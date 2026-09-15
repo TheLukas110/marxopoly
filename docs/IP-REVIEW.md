@@ -1,11 +1,11 @@
-# IP review: Common Ground working title
+# IP review: Marxopoly working title
 
 Reviewed 12 September 2026. This records engineering changes and unresolved issues;
 it is not a legal opinion, clearance search, or a guarantee against litigation.
 
 ## What changed
 
-- Replaced the public “Marxopoly” branding with the working title “Common Ground”.
+- Replaced the public “Marxopoly” branding with the working title “Marxopoly”.
   The package scope, browser storage keys, Git repository name and historical
   copyright notice remain for compatibility and attribution; they are not the
   public product name. The new title has **not** been cleared for trademark use.
@@ -33,7 +33,7 @@ design-right or unfair-competition claims about the overall product.
 
 Before choosing the release name, obtain a proper clearance search covering the
 territories and goods/services you will offer. Check DPMA, EUIPO and WIPO records,
-similar names and unregistered uses; “Common Ground” is only a working title.
+similar names and unregistered uses; “Marxopoly” is only a working title.
 Have an IP lawyer review the actual game, visuals and distribution plans, including
 the remaining combination of mechanics and tile sequence. That may lead to further
 changes or a licence; this code change cannot promise that no rights holder will sue.

@@ -27,7 +27,7 @@ export default function Home() {
   const canJoin = nameOk && connected && !joining;
 
   if (invitedRoomId) return <div className="home invitation-home">
-    <header className="home-head"><span className="eyebrow">THERE'S A SEAT FOR YOU</span><h1>You're invited to Common Ground</h1><p>Choose your name to join table <strong className="code-chip">{invitedRoomId}</strong>.</p></header>
+    <header className="home-head"><span className="eyebrow">THERE'S A SEAT FOR YOU</span><h1>You're invited to Marxopoly</h1><p>Choose your name to join table <strong className="code-chip">{invitedRoomId}</strong>.</p></header>
     {rejoin}
     <form className="card" onSubmit={e => { e.preventDefault(); if (canJoin) joinRoom(invitedRoomId); }}>
       <label className="field" htmlFor="invite-name">Your name</label><input id="invite-name" className="input" value={playerName} maxLength={24} placeholder="e.g. Sandy" autoFocus autoComplete="nickname" required onChange={e => setPlayerName(e.target.value)} />
@@ -37,7 +37,7 @@ export default function Home() {
   </div>;
 
   return <div className="home home-redesign">
-    <nav className="home-nav" aria-label="Main navigation"><a className="wordmark" href="#"><span className="brand-symbol" aria-hidden="true">◎</span>common ground<span className="wordmark-period">.</span></a><div className="home-nav-links"><a href="#worlds">The worlds</a><a href="#how-to-play">How to play</a><a href="#tables">Find a table <span aria-hidden="true">↗</span></a></div><span className="connection-status"><i className={connected ? 'online' : ''} />{connected ? 'Ready to play' : 'Connecting'}</span></nav>
+    <nav className="home-nav" aria-label="Main navigation"><a className="wordmark" href="#"><span className="brand-symbol" aria-hidden="true">◎</span>marxopoly<span className="wordmark-period">.</span></a><div className="home-nav-links"><a href="#worlds">The worlds</a><a href="#how-to-play">How to play</a><a href="#tables">Find a table <span aria-hidden="true">↗</span></a></div><span className="connection-status"><i className={connected ? 'online' : ''} />{connected ? 'Ready to play' : 'Connecting'}</span></nav>
     <main>
       {rejoin}
       <section className="home-hero" aria-labelledby="hero-title">
@@ -64,6 +64,6 @@ export default function Home() {
       </section>
       <section className="how-section" id="how-to-play" aria-labelledby="how-title"><div><span className="eyebrow">SIMPLE TO START. HARD TO WALK AWAY.</span><h2 id="how-title">A little luck.<br />A lot of nerve.</h2></div><ol className="how-steps"><li><span>01</span><div><h3>Bring your people.</h3><p>Create a table, share the invite, and make the house rules your own. Bots are always up for a game.</p></div></li><li><span>02</span><div><h3>Make your move.</h3><p>Roll, buy streets, collect sets. Build houses and hotels to turn a small foothold into a growing empire.</p></div></li><li><span>03</span><div><h3>Own the evening.</h3><p>Trade, bid, and collect rent. Keep your cash flowing and be the last player standing.</p></div></li></ol></section>
     </main>
-    <footer className="home-foot"><a className="wordmark" href="#">common ground<span className="wordmark-period">.</span></a><p>A small world for big game nights.</p><span>Made for the table. Played in your browser.</span></footer>
+    <footer className="home-foot"><a className="wordmark" href="#">marxopoly<span className="wordmark-period">.</span></a><p>A small world for big game nights.</p><span>Made for the table. Played in your browser.</span></footer>
   </div>;
 }

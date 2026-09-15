@@ -9,7 +9,7 @@ import type { MapDefinition } from './types.js';
 export const STANDARD: MapDefinition = {
   id: 'standard',
   name: 'Civic Quarter',
-  description: 'A classic square board around the Common Ground districts.',
+  description: 'A classic square board around the Marxopoly districts.',
   layout: ringLayout(),
   vars: {
     '--board-face': '#ffffff',

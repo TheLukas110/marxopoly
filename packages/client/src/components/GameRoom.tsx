@@ -70,7 +70,7 @@ export default function GameRoom() {
   return (
     <div className="game" data-mobile-panel={mobilePanel}>
       <header className="game-head">
-        <div className="game-brand"><span className="brand-mark"><GameIcon name="board" /></span><div className="brand small">Common Ground<span className="dot" /></div></div>
+        <div className="game-brand"><span className="brand-mark"><GameIcon name="board" /></span><div className="brand small">Marxopoly<span className="dot" /></div></div>
         <div className="game-room-name"><span className="live-dot" /><span>{roomName || 'Your table'}</span><span className="code-chip">{roomId}</span></div>
         <div className="board-preferences" role="group" aria-label="Board display"><MapPicker compact /><BoardViewToggle /></div>
       </header>

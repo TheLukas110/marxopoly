@@ -567,7 +567,7 @@ httpServer.listen(config.port, () => {
     `http://localhost:${config.port}`,
     ...lanAddresses().map((ip) => `http://${ip}:${config.port}`),
   ];
-  banner(['Common Ground server is running', '', ...urls.map((u) => `    ${u}`)]);
+  banner(['Marxopoly server is running', '', ...urls.map((u) => `    ${u}`)]);
   if (config.share) {
     void openTunnel();
   } else if (!config.isProd) {

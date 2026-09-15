@@ -1,9 +1,9 @@
-# Common Ground
+# Marxopoly
 
 A real-time, multiplayer property-trading board game for the browser. Create a table, share the
 six-character code, and play with two to eight people — or fill the empty seats with bots.
 
-Common Ground is a working title for an independently maintained property-trading game.
+Marxopoly is a working title for an independently maintained property-trading game.
 It is not affiliated with or endorsed by Hasbro. Its mechanics have substantial similarities
 to Monopoly; renaming and redesigning it do not establish legal clearance.
 See [the IP review and remaining release checks](docs/IP-REVIEW.md).
